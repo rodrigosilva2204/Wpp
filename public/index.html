@@ -1,0 +1,1350 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WPP Promoções</title>
+  <link rel="preconnect" href="https://api.fontshare.com">
+  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&f[]=cabinet-grotesk@500,700&display=swap" rel="stylesheet">
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    /* ═══════════════════════════════════════════════════════════════════
+       DESIGN SYSTEM — Futuristic Pro
+    ═══════════════════════════════════════════════════════════════════ */
+    :root {
+      /* Dark Cyber — default */
+      --bg:#05080d;
+      --surface:#0b1018;
+      --surface-2:#0f1620;
+      --border:rgba(0,210,255,.1);
+      --border-hi:rgba(0,210,255,.28);
+      --text:#ccd8e8;
+      --muted:#3d5870;
+      --accent:#00d2ff;
+      --primary:#00d2ff;
+      --primary-hover:#33deff;
+      --primary-soft:rgba(0,210,255,.1);
+      --success:#00e87a;
+      --success-soft:rgba(0,232,122,.08);
+      --error:#ff2d78;
+      --error-soft:rgba(255,45,120,.1);
+      --warning:#ffb300;
+      --warning-soft:rgba(255,179,0,.08);
+      --info-soft:rgba(0,210,255,.06);
+      --radius:.6rem;--radius-sm:.45rem;--radius-xs:.3rem;
+      --shadow:0 4px 28px rgba(0,0,0,.6);
+      --shadow-lg:0 8px 48px rgba(0,0,0,.75),0 0 0 1px rgba(0,210,255,.06);
+      --glow-sm:0 0 12px rgba(0,210,255,.25);
+      --glow:0 0 24px rgba(0,210,255,.2);
+      --glow-lg:0 0 48px rgba(0,210,255,.15);
+    }
+    [data-theme="light"] {
+      --bg:#eef2f7;
+      --surface:#ffffff;
+      --surface-2:#f4f7fb;
+      --border:rgba(0,100,140,.13);
+      --border-hi:rgba(0,100,140,.35);
+      --text:#0d1b2a;
+      --muted:#5b7a99;
+      --accent:#0077a8;
+      --primary:#0077a8;
+      --primary-hover:#005f8a;
+      --primary-soft:rgba(0,119,168,.1);
+      --success:#006e35;
+      --success-soft:rgba(0,110,53,.08);
+      --error:#b50040;
+      --error-soft:rgba(181,0,64,.08);
+      --warning:#8a4e00;
+      --warning-soft:rgba(138,78,0,.08);
+      --info-soft:rgba(0,119,168,.06);
+      --radius:.6rem;--radius-sm:.45rem;--radius-xs:.3rem;
+      --shadow:0 2px 16px rgba(0,0,0,.07);
+      --shadow-lg:0 6px 32px rgba(0,0,0,.11);
+      --glow-sm:none;--glow:none;--glow-lg:none;
+    }
+
+    /* ── Reset ─────────────────────────────────────────────────────── */
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{min-height:100vh}
+    body{font-family:'Satoshi',sans-serif;background:var(--bg);color:var(--text);font-size:1rem;line-height:1.55;transition:background .3s,color .3s}
+    button,input,select,textarea{font:inherit;color:inherit}
+    button{cursor:pointer}
+    a{color:var(--primary)}
+
+    /* Subtle grid background (dark only) */
+    [data-theme="dark"] body{
+      background-image:
+        linear-gradient(rgba(0,210,255,.025) 1px,transparent 1px),
+        linear-gradient(90deg,rgba(0,210,255,.025) 1px,transparent 1px);
+      background-size:52px 52px;
+    }
+
+    /* ── Layout ─────────────────────────────────────────────────────── */
+    .app{max-width:1360px;margin:0 auto;padding:1.5rem 2rem 3rem;position:relative}
+    @media(max-width:680px){.app{padding:1rem 1rem 2rem}}
+
+    /* ── Topbar ─────────────────────────────────────────────────────── */
+    .topbar{display:flex;justify-content:space-between;align-items:center;gap:1rem;margin-bottom:2rem;flex-wrap:wrap}
+    .brand{display:flex;align-items:center;gap:.9rem}
+    .logo{
+      width:46px;height:46px;border-radius:10px;
+      background:linear-gradient(135deg,var(--primary) 0%,#0055ff 100%);
+      display:grid;place-items:center;color:#fff;flex-shrink:0;
+      box-shadow:0 4px 20px rgba(0,210,255,.35),0 0 0 1px rgba(0,210,255,.2);
+    }
+    [data-theme="dark"] .logo{box-shadow:0 4px 24px rgba(0,210,255,.45),0 0 40px rgba(0,210,255,.12),0 0 0 1px rgba(0,210,255,.25)}
+    .brand-text h1{font-family:'Cabinet Grotesk',sans-serif;font-size:1.45rem;font-weight:700;line-height:1.1;letter-spacing:-.01em}
+    [data-theme="dark"] .brand-text h1{background:linear-gradient(90deg,#c8e8ff,var(--primary));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    .brand-text p{font-size:.84rem;color:var(--muted);margin-top:.15rem}
+    .topbar-right{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+
+    /* ── Buttons ─────────────────────────────────────────────────────── */
+    .btn{
+      display:inline-flex;align-items:center;gap:.4rem;
+      padding:.6rem 1rem;border-radius:var(--radius-sm);
+      border:1px solid var(--border-hi);background:var(--surface-2);
+      color:var(--text);font-size:.88rem;font-weight:600;
+      box-shadow:var(--shadow);transition:all .18s;
+    }
+    .btn:hover{background:var(--surface);border-color:var(--primary);color:var(--primary)}
+    [data-theme="dark"] .btn:hover{box-shadow:var(--shadow),var(--glow-sm),0 0 0 1px var(--primary)}
+    .btn:disabled{opacity:.4;cursor:not-allowed;pointer-events:none}
+    .btn.primary{
+      background:var(--primary);color:#000;border-color:transparent;font-weight:700;
+      box-shadow:0 2px 12px rgba(0,210,255,.3);
+    }
+    .btn.primary:hover{background:var(--primary-hover);color:#000}
+    [data-theme="dark"] .btn.primary{box-shadow:0 2px 16px rgba(0,210,255,.4),0 0 30px rgba(0,210,255,.15)}
+    [data-theme="dark"] .btn.primary:hover{box-shadow:0 4px 24px rgba(0,210,255,.55),0 0 40px rgba(0,210,255,.2)}
+    .btn.sm{padding:.38rem .75rem;font-size:.82rem}
+    .btn.danger{background:var(--error-soft);color:var(--error);border-color:rgba(255,45,120,.25)}
+    .btn.danger:hover{background:var(--error);color:#fff;border-color:transparent}
+    [data-theme="dark"] .btn.danger:hover{box-shadow:0 0 20px rgba(255,45,120,.35)}
+    .spinner{width:13px;height:13px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin .6s linear infinite;flex-shrink:0}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* ── Grid ────────────────────────────────────────────────────────── */
+    .main-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;align-items:start}
+    @media(max-width:1000px){.main-grid{grid-template-columns:1fr}}
+
+    /* ── Panel ───────────────────────────────────────────────────────── */
+    .panel{
+      background:var(--surface);border:1px solid var(--border);
+      border-radius:var(--radius);padding:1.5rem;box-shadow:var(--shadow);
+    }
+    [data-theme="dark"] .panel{
+      border-color:var(--border);
+      box-shadow:var(--shadow),inset 0 1px 0 rgba(0,210,255,.05);
+    }
+    .panel+.panel{margin-top:1.1rem}
+    .panel-header{margin-bottom:1.25rem}
+    .panel-header h2{font-family:'Cabinet Grotesk',sans-serif;font-size:1.05rem;font-weight:700;letter-spacing:-.01em}
+    [data-theme="dark"] .panel-header h2{color:#d0e8ff}
+    .panel-header p{font-size:.84rem;color:var(--muted);margin-top:.2rem}
+    .panel-header-row{display:flex;justify-content:space-between;align-items:flex-start;gap:.5rem}
+
+    /* ── Status dots ─────────────────────────────────────────────────── */
+    .status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:.4rem;flex-shrink:0}
+    .dot-green{background:var(--success)}
+    .dot-yellow{background:var(--warning);animation:pulse 1.4s ease infinite}
+    .dot-red{background:var(--error)}
+    .dot-gray{background:var(--muted)}
+    [data-theme="dark"] .dot-green{box-shadow:0 0 0 3px rgba(0,232,122,.15),0 0 10px rgba(0,232,122,.5)}
+    [data-theme="dark"] .dot-yellow{box-shadow:0 0 0 3px rgba(255,179,0,.15),0 0 10px rgba(255,179,0,.5)}
+    [data-theme="dark"] .dot-red{box-shadow:0 0 0 3px rgba(255,45,120,.15),0 0 10px rgba(255,45,120,.5)}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+    /* ── Stats row ───────────────────────────────────────────────────── */
+    .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:.65rem;margin-bottom:1.25rem}
+    @media(max-width:600px){.stats{grid-template-columns:repeat(2,1fr)}}
+    .stat{
+      background:var(--surface-2);border:1px solid var(--border);
+      border-radius:var(--radius-sm);padding:.8rem 1rem;
+    }
+    [data-theme="dark"] .stat{border-color:var(--border)}
+    .stat .lbl{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:700}
+    .stat .val{font-size:.95rem;font-weight:700;margin-top:.3rem;display:flex;align-items:center}
+
+    /* ── QR Box ──────────────────────────────────────────────────────── */
+    .qrbox{
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      min-height:260px;border:1px dashed var(--border-hi);background:var(--surface-2);
+      border-radius:var(--radius);padding:1.5rem;gap:1rem;text-align:center;transition:border-color .3s;
+    }
+    .qrbox.connected{border-color:var(--success);border-style:solid;background:var(--success-soft)}
+    [data-theme="dark"] .qrbox.connected{box-shadow:inset 0 0 40px rgba(0,232,122,.04)}
+    .qrbox img{width:220px;height:220px;border-radius:.5rem;box-shadow:var(--shadow-lg)}
+    .qr-icon{width:54px;height:54px;border-radius:50%;display:grid;place-items:center;margin-bottom:.25rem}
+    .qr-icon.loading-icon{background:var(--primary-soft)}
+    .qr-icon.success-icon{background:var(--success-soft)}
+    .qr-icon.error-icon{background:var(--error-soft)}
+    .qrbox .qr-title{font-weight:700;font-size:1rem}
+    .qrbox .qr-sub{font-size:.84rem;color:var(--muted);max-width:220px}
+    .qr-spin{width:34px;height:34px;border:2px solid var(--border-hi);border-top-color:var(--primary);border-radius:50%;animation:spin .9s linear infinite}
+
+    /* ── Form ────────────────────────────────────────────────────────── */
+    .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:.9rem}
+    @media(max-width:600px){.form-grid{grid-template-columns:1fr}}
+    .field{display:flex;flex-direction:column;gap:.35rem}
+    .field.full{grid-column:1/-1}
+    .field label{font-size:.8rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+    .field input,.field select,.field textarea{
+      padding:.75rem 1rem;border-radius:var(--radius-sm);
+      border:1px solid var(--border-hi);background:var(--surface-2);
+      color:var(--text);transition:border-color .15s,box-shadow .15s;font-size:.93rem;
+    }
+    .field input:focus,.field select:focus,.field textarea:focus{
+      outline:none;border-color:var(--primary);
+    }
+    [data-theme="dark"] .field input:focus,[data-theme="dark"] .field select:focus,[data-theme="dark"] .field textarea:focus{
+      box-shadow:0 0 0 3px rgba(0,210,255,.12),var(--glow-sm);
+    }
+    .field textarea{min-height:80px;resize:vertical}
+    .checks{display:flex;gap:1.25rem;flex-wrap:wrap;margin-top:.75rem}
+    .check{display:flex;align-items:center;gap:.5rem;font-size:.9rem;cursor:pointer}
+    .check input[type=checkbox]{width:16px;height:16px;accent-color:var(--primary)}
+    .form-actions{margin-top:1.25rem;display:flex;gap:.65rem;align-items:center;flex-wrap:wrap}
+
+    /* ── Divider ─────────────────────────────────────────────────────── */
+    .divider{border:none;border-top:1px solid var(--border);margin:1.4rem 0}
+    [data-theme="dark"] .divider{border-color:rgba(0,210,255,.08)}
+
+    /* ── Section heading + Badges ────────────────────────────────────── */
+    .section-title{display:flex;align-items:center;gap:.6rem;margin-bottom:1rem}
+    .section-title h3{font-family:'Cabinet Grotesk',sans-serif;font-size:.9rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+    [data-theme="dark"] .section-title h3{color:var(--muted)}
+    .badge{display:inline-flex;align-items:center;padding:.18rem .6rem;border-radius:.3rem;font-size:.72rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+    .badge.green{background:var(--success-soft);color:var(--success)}
+    .badge.yellow{background:var(--warning-soft);color:var(--warning);border:1px solid rgba(255,179,0,.2)}
+    .badge.gray{background:var(--surface-2);color:var(--muted);border:1px solid var(--border-hi)}
+    .badge.teal{background:var(--primary-soft);color:var(--primary);border:1px solid rgba(0,210,255,.18)}
+    .badge.amazon{background:rgba(255,153,0,.12);color:#b07000;border:1px solid rgba(255,153,0,.25)}
+    .badge.shopee{background:rgba(238,77,45,.1);color:#c04020;border:1px solid rgba(238,77,45,.25)}
+    [data-theme="dark"] .badge.amazon{background:rgba(255,153,0,.1);color:#ffb84d;border-color:rgba(255,153,0,.2)}
+    [data-theme="dark"] .badge.shopee{background:rgba(238,77,45,.1);color:#ff7a5a;border-color:rgba(238,77,45,.2)}
+
+    /* ── Rule cards ──────────────────────────────────────────────────── */
+    .rules-list{display:flex;flex-direction:column;gap:.55rem}
+    .rule-card{
+      display:flex;align-items:flex-start;gap:1rem;padding:1rem;
+      background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);
+      transition:border-color .2s;
+    }
+    [data-theme="dark"] .rule-card:hover{border-color:var(--border-hi)}
+    .rule-card.inactive{opacity:.45}
+    .rule-info{flex:1;min-width:0}
+    .rule-name{font-weight:700;font-size:.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .rule-detail{font-size:.78rem;color:var(--muted);margin-top:.2rem}
+    .rule-pattern{
+      display:inline-block;background:var(--surface);border:1px solid var(--border-hi);
+      border-radius:.25rem;padding:.1rem .4rem;font-size:.75rem;font-family:monospace;color:var(--primary);
+    }
+
+    /* ── Logs ────────────────────────────────────────────────────────── */
+    .logs{display:flex;flex-direction:column;gap:.5rem;max-height:500px;overflow-y:auto;padding-right:.25rem}
+    .logs::-webkit-scrollbar{width:3px}
+    .logs::-webkit-scrollbar-track{background:transparent}
+    .logs::-webkit-scrollbar-thumb{background:var(--border-hi);border-radius:3px}
+    .log-item{
+      padding:.8rem 1rem;border-radius:var(--radius-sm);background:var(--surface-2);
+      border-left:2px solid var(--border);transition:background .15s;
+    }
+    .log-item.info{border-left-color:var(--primary)}
+    .log-item.success{border-left-color:var(--success)}
+    .log-item.error{border-left-color:var(--error);background:var(--error-soft)}
+    .log-item.warn{border-left-color:var(--warning)}
+    .log-item.simulate{border-left-color:var(--warning);background:var(--warning-soft)}
+    .log-item.forward{border-left-color:var(--success);background:var(--success-soft)}
+    [data-theme="dark"] .log-item.forward{box-shadow:inset 0 0 20px rgba(0,232,122,.03)}
+    .log-time{font-size:.72rem;color:var(--muted);margin-bottom:.3rem;font-family:monospace;letter-spacing:.02em}
+    .log-text{font-size:.86rem;font-weight:600}
+    .log-meta{margin-top:.4rem;display:flex;flex-wrap:wrap;gap:.3rem .75rem}
+    .log-meta-item{font-size:.76rem;color:var(--muted)}
+    .log-meta-key{font-weight:700;color:var(--text)}
+    .log-preview{
+      margin-top:.5rem;font-size:.78rem;background:var(--surface);border:1px solid var(--border);
+      border-radius:.3rem;padding:.5rem .75rem;color:var(--muted);font-family:monospace;
+      white-space:pre-wrap;word-break:break-all;max-height:80px;overflow:auto;
+    }
+    .logs-empty{text-align:center;padding:2.5rem;color:var(--muted);font-size:.88rem}
+
+    /* ── Config sections ─────────────────────────────────────────────── */
+    .affiliate-section{
+      background:rgba(0,210,255,.04);border:1px solid rgba(0,210,255,.15);
+      border-radius:var(--radius-sm);padding:1.1rem 1.25rem;
+    }
+    .schedule-section{
+      background:rgba(255,179,0,.04);border:1px solid rgba(255,179,0,.15);
+      border-radius:var(--radius-sm);padding:1.1rem 1.25rem;
+    }
+    .amazon-section{
+      background:rgba(255,153,0,.04);border:1px solid rgba(255,153,0,.18);
+      border-radius:var(--radius-sm);padding:1.1rem 1.25rem;
+    }
+    .shopee-section{
+      background:rgba(238,77,45,.04);border:1px solid rgba(238,77,45,.15);
+      border-radius:var(--radius-sm);padding:1.1rem 1.25rem;
+    }
+
+    /* ── Queue Monitor Panel ─────────────────────────────────────────── */
+    .queue-monitor{
+      background:var(--surface);border:1px solid var(--border-hi);
+      border-radius:var(--radius);box-shadow:var(--shadow);margin-top:1.1rem;overflow:hidden;
+    }
+    [data-theme="dark"] .queue-monitor{
+      box-shadow:var(--shadow),0 0 40px rgba(0,210,255,.06);
+      border-color:rgba(0,210,255,.2);
+    }
+    .queue-monitor-inner{display:grid;grid-template-columns:300px 1fr;gap:0}
+    @media(max-width:800px){.queue-monitor-inner{grid-template-columns:1fr}}
+    .qm-left{
+      padding:1.5rem;border-right:1px solid var(--border);
+      display:flex;flex-direction:column;gap:1rem;
+    }
+    [data-theme="dark"] .qm-left{
+      background:linear-gradient(160deg,rgba(0,210,255,.04) 0%,transparent 70%);
+      border-right-color:rgba(0,210,255,.1);
+    }
+    @media(max-width:800px){.qm-left{border-right:none;border-bottom:1px solid var(--border)}}
+    .qm-header{
+      display:flex;align-items:center;gap:.5rem;
+      font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);
+    }
+    .qm-timer-block{text-align:center;padding:.5rem 0}
+    .qm-timer-label{
+      font-size:.68rem;color:var(--muted);text-transform:uppercase;
+      letter-spacing:.08em;font-weight:700;margin-bottom:.5rem;
+    }
+    .qm-countdown{
+      font-family:'Cabinet Grotesk',monospace;font-size:3.2rem;font-weight:700;
+      line-height:1;color:var(--primary);letter-spacing:.04em;
+    }
+    [data-theme="dark"] .qm-countdown{
+      text-shadow:0 0 20px rgba(0,210,255,.6),0 0 40px rgba(0,210,255,.3);
+    }
+    .qm-next-abs{font-size:.84rem;color:var(--muted);margin-top:.4rem;letter-spacing:.02em}
+    .qm-status-row{display:flex;align-items:center;justify-content:center;gap:.5rem;font-size:.84rem;font-weight:600}
+    .qm-right{padding:1.25rem 1.5rem;display:flex;flex-direction:column;gap:.7rem}
+    .qm-right-header{display:flex;align-items:center;gap:.5rem}
+    .qm-right-header h3{
+      font-family:'Cabinet Grotesk',sans-serif;font-size:.72rem;font-weight:700;
+      text-transform:uppercase;letter-spacing:.08em;color:var(--muted);
+    }
+    .qm-items{display:flex;flex-direction:column;gap:.4rem;max-height:240px;overflow-y:auto}
+    .qm-items::-webkit-scrollbar{width:3px}
+    .qm-items::-webkit-scrollbar-thumb{background:var(--border-hi);border-radius:3px}
+    .qm-item{
+      display:flex;align-items:flex-start;gap:.6rem;padding:.5rem .7rem;
+      border-radius:var(--radius-xs);background:var(--surface-2);border:1px solid var(--border);font-size:.81rem;
+      transition:border-color .2s;
+    }
+    [data-theme="dark"] .qm-item:hover{border-color:var(--border-hi)}
+    .qm-item-num{
+      min-width:22px;height:22px;border-radius:.25rem;background:var(--border-hi);
+      display:flex;align-items:center;justify-content:center;
+      font-weight:700;font-size:.68rem;flex-shrink:0;color:var(--muted);font-family:monospace;
+    }
+    [data-theme="dark"] .qm-item-num{background:rgba(0,210,255,.12);color:var(--primary)}
+    .qm-item-body{flex:1;min-width:0}
+    .qm-item-rule{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .qm-item-preview{color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:.1rem;font-size:.76rem}
+    .qm-item-time{flex-shrink:0;text-align:right;white-space:nowrap}
+    .qm-item-abs{font-weight:700;color:var(--primary);font-size:.84rem;font-family:monospace}
+    .qm-item-rel{color:var(--muted);font-size:.73rem;margin-top:.1rem}
+    .qm-empty{text-align:center;padding:2rem 1rem;color:var(--muted);font-size:.86rem}
+    .qm-controls{display:flex;gap:.45rem;flex-wrap:wrap}
+
+    /* ── Login overlay ───────────────────────────────────────────────── */
+    #loginOverlay{
+      position:fixed;inset:0;z-index:9999;
+      display:flex;align-items:center;justify-content:center;
+      background:var(--bg);
+    }
+    [data-theme="dark"] #loginOverlay{
+      background-image:
+        linear-gradient(rgba(0,210,255,.03) 1px,transparent 1px),
+        linear-gradient(90deg,rgba(0,210,255,.03) 1px,transparent 1px);
+      background-size:52px 52px;
+    }
+    .login-card{
+      width:100%;max-width:380px;
+      background:var(--surface);border:1px solid var(--border-hi);
+      border-radius:var(--radius);padding:2.5rem 2rem;
+      box-shadow:var(--shadow-lg);
+    }
+    [data-theme="dark"] .login-card{
+      box-shadow:var(--shadow-lg),0 0 60px rgba(0,210,255,.06);
+    }
+    .login-logo{
+      width:52px;height:52px;border-radius:12px;margin:0 auto 1.25rem;
+      background:linear-gradient(135deg,var(--primary) 0%,#0055ff 100%);
+      display:grid;place-items:center;color:#fff;
+    }
+    [data-theme="dark"] .login-logo{
+      box-shadow:0 4px 24px rgba(0,210,255,.4),0 0 40px rgba(0,210,255,.12);
+    }
+    .login-title{
+      font-family:'Cabinet Grotesk',sans-serif;font-size:1.3rem;font-weight:700;
+      text-align:center;margin-bottom:.3rem;
+    }
+    [data-theme="dark"] .login-title{
+      background:linear-gradient(90deg,#c8e8ff,var(--primary));
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+    }
+    .login-sub{text-align:center;font-size:.84rem;color:var(--muted);margin-bottom:2rem}
+    .login-fields{display:flex;flex-direction:column;gap:.85rem;margin-bottom:1.25rem}
+    .login-field{display:flex;flex-direction:column;gap:.3rem}
+    .login-field label{font-size:.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+    .login-field input{
+      padding:.8rem 1rem;border-radius:var(--radius-sm);
+      border:1px solid var(--border-hi);background:var(--surface-2);
+      color:var(--text);font-size:.95rem;transition:border-color .15s,box-shadow .15s;
+    }
+    .login-field input:focus{
+      outline:none;border-color:var(--primary);
+    }
+    [data-theme="dark"] .login-field input:focus{
+      box-shadow:0 0 0 3px rgba(0,210,255,.12),0 0 12px rgba(0,210,255,.2);
+    }
+    #loginBtn{
+      width:100%;padding:.85rem;border-radius:var(--radius-sm);
+      background:var(--primary);color:#000;border:none;
+      font-weight:700;font-size:1rem;cursor:pointer;
+      transition:all .18s;
+    }
+    [data-theme="dark"] #loginBtn{
+      box-shadow:0 2px 16px rgba(0,210,255,.4),0 0 30px rgba(0,210,255,.15);
+    }
+    #loginBtn:hover{background:var(--primary-hover)}
+    [data-theme="dark"] #loginBtn:hover{box-shadow:0 4px 24px rgba(0,210,255,.55),0 0 40px rgba(0,210,255,.2)}
+    #loginBtn:disabled{opacity:.5;cursor:not-allowed}
+    #loginError{
+      display:none;margin-top:.85rem;padding:.65rem .9rem;
+      border-radius:var(--radius-xs);background:var(--error-soft);
+      color:var(--error);font-size:.84rem;font-weight:600;text-align:center;
+      border:1px solid rgba(255,45,120,.2);
+    }
+  </style>
+</head>
+<body>
+
+<!-- Tela de login -->
+<div id="loginOverlay">
+  <div class="login-card">
+    <div class="login-logo">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M17.6 6.4A8 8 0 1 0 6.4 17.6L4 20l2.4-2.4A8 8 0 0 0 17.6 6.4Z" stroke="currentColor" stroke-width="1.8"/><path d="M9 12h6M9 9h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+    </div>
+    <div class="login-title">WPP Promoções</div>
+    <div class="login-sub">Acesso restrito — faça login para continuar</div>
+    <div class="login-fields">
+      <div class="login-field">
+        <label>Usuário</label>
+        <input id="loginUser" type="text" placeholder="admin" autocomplete="username" />
+      </div>
+      <div class="login-field">
+        <label>Senha</label>
+        <input id="loginPass" type="password" placeholder="••••••••" autocomplete="current-password" />
+      </div>
+    </div>
+    <button id="loginBtn">Entrar</button>
+    <div id="loginError">Usuário ou senha incorretos.</div>
+  </div>
+</div>
+
+<div class="app" id="mainApp" style="display:none">
+
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="brand">
+      <div class="logo">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M17.6 6.4A8 8 0 1 0 6.4 17.6L4 20l2.4-2.4A8 8 0 0 0 17.6 6.4Z" stroke="currentColor" stroke-width="1.8"/><path d="M9 12h6M9 9h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </div>
+      <div class="brand-text">
+        <h1>WPP Promoções</h1>
+        <p>Encaminhe promoções com seu link de afiliado automaticamente</p>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <button class="btn sm" id="themeBtn">🌙 Tema</button>
+      <button class="btn sm" id="refreshGroupsBtn">↺ Grupos</button>
+      <button class="btn sm" id="restartBtn">⟳ Reiniciar</button>
+      <button class="btn sm danger" id="logoutBtn">✕ Resetar login</button>
+      <button class="btn sm danger" id="authLogoutBtn">⎋ Sair</button>
+    </div>
+  </div>
+
+  <div class="main-grid">
+
+    <!-- Coluna esquerda -->
+    <div>
+
+      <!-- Conexão -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-header-row">
+            <div>
+              <h2>Conexão WhatsApp</h2>
+              <p>Escaneie o QR Code com o seu celular para conectar.</p>
+            </div>
+            <span id="statusBadge" class="badge gray">Iniciando</span>
+          </div>
+        </div>
+
+        <div class="stats">
+          <div class="stat"><div class="lbl">Status</div><div class="val" id="statusText"><span class="status-dot dot-gray"></span>—</div></div>
+          <div class="stat"><div class="lbl">Regras</div><div class="val" id="rulesCount">0</div></div>
+          <div class="stat"><div class="lbl">Simulação</div><div class="val" id="simMode">—</div></div>
+          <div class="stat"><div class="lbl">Afiliado</div><div class="val" id="affiliateStat">—</div></div>
+        </div>
+
+        <div class="qrbox" id="qrbox">
+          <div class="qr-spin"></div>
+          <div class="qr-title">Iniciando WhatsApp...</div>
+          <div class="qr-sub">Aguarde enquanto o Chrome carrega</div>
+        </div>
+      </div>
+
+      <!-- Dica: grupos não carregaram -->
+      <div id="groupsHint" style="display:none;margin-top:.75rem">
+        <div style="padding:.85rem 1.1rem;background:var(--warning-soft);border:1px solid var(--warning);border-radius:var(--radius-sm);font-size:.88rem;display:flex;align-items:center;gap:.6rem">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="flex-shrink:0"><path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" stroke="var(--warning)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Grupos ainda não carregaram — clique em <strong style="margin:0 .25rem">↺ Grupos</strong> no topo para atualizar.
+        </div>
+      </div>
+
+      <!-- Nova regra -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-header-row">
+            <div><h2>Nova regra</h2><p>Configure de qual grupo copiar e para qual enviar.</p></div>
+            <span class="badge teal">MVP</span>
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="field"><label>Nome da regra</label><input id="name" placeholder="Ex.: Promoções do dia" /></div>
+          <div class="field"><label>Tipo de match</label>
+            <select id="matchType">
+              <option value="contains">Contém</option>
+              <option value="startsWith">Começa com</option>
+              <option value="regex">Regex</option>
+            </select>
+          </div>
+          <div class="field"><label>Origem <span style="font-size:.75rem;color:var(--muted);font-weight:400">(grupo ou canal)</span></label><select id="sourceGroup"><option value="">— Selecione —</option></select></div>
+          <div class="field"><label>Grupo de destino</label><select id="targetGroup"><option value="">— Selecione —</option></select></div>
+          <div class="field full"><label>Padrão de identificação</label><input id="pattern" placeholder="Ex.: mercadolivre.com ou PEDIDO:" /></div>
+          <div class="field"><label>Flags regex</label><input id="flags" value="i" /></div>
+          <div class="field"><label>Prefixo (opcional)</label><input id="prefix" placeholder="🔥 OFERTA:" /></div>
+          <div class="field full"><label>Sufixo (opcional)</label><textarea id="suffix" placeholder="⏰ Promoção por tempo limitado!"></textarea></div>
+          <div class="field full">
+            <label>Plataformas</label>
+            <div class="checks" style="margin-top:.25rem">
+              <label class="check"><input type="checkbox" name="platform" value="ml" checked /> <span class="badge teal" style="font-size:.78rem">ML</span> Mercado Livre</label>
+              <label class="check"><input type="checkbox" name="platform" value="amazon" /> <span class="badge amazon" style="font-size:.78rem">AMZ</span> Amazon</label>
+              <label class="check"><input type="checkbox" name="platform" value="shopee" /> <span class="badge shopee" style="font-size:.78rem">SHP</span> Shopee</label>
+            </div>
+          </div>
+        </div>
+        <div class="form-actions">
+          <label class="check"><input type="checkbox" id="active" checked /> Regra ativa</label>
+          <button class="btn primary" id="saveRuleBtn">Salvar regra</button>
+        </div>
+      </div>
+
+      <!-- Configurações -->
+      <div class="panel">
+        <div class="panel-header"><h2>Configurações</h2><p>Ajuste o comportamento do sistema.</p></div>
+
+        <div class="checks">
+          <label class="check"><input type="checkbox" id="simulationMode" /> Modo simulação (não envia, só loga)</label>
+          <label class="check"><input type="checkbox" id="ignoreOwnMessages" /> Ignorar mensagens próprias</label>
+        </div>
+        <div class="field" style="margin-top:1rem;max-width:240px">
+          <label>Janela anti-duplicação (segundos)</label>
+          <input id="avoidDuplicatesWindowSec" type="number" min="10" value="120" />
+        </div>
+
+        <hr class="divider">
+
+        <div class="affiliate-section">
+          <div class="section-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <h3>Link de Afiliado — Mercado Livre</h3>
+            <span id="affiliateBadge" style="display:none" class="badge green">Ativo</span>
+          </div>
+          <p style="font-size:.85rem;color:var(--muted);margin-bottom:1rem">Links do ML encaminhados serão substituídos pelo seu link de afiliado. O Modo API gera links curtos <strong>meli.la</strong> reais via API.</p>
+          <label class="check" style="margin-bottom:1rem"><input type="checkbox" id="affiliateEnabled" /> Substituição automática ativa</label>
+
+          <div style="font-size:.78rem;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.6rem">Modo API — Link curto meli.la</div>
+          <div class="form-grid">
+            <div class="field"><label>Token de acesso (base64)</label><input type="password" id="affiliateApiToken" placeholder="c3NpZD1naHkt..." autocomplete="off" /></div>
+            <div class="field"><label>Tag do afiliado</label><input id="affiliateApiTag" placeholder="Ex.: promofantasma" /></div>
+          </div>
+
+          <div style="font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:.9rem;margin-bottom:.6rem">Parâmetros matt_* (fallback / alternativo)</div>
+          <div class="form-grid">
+            <div class="field"><label>ID social (perfil ML)</label><input id="affiliateSocialId" placeholder="Ex.: cy20260504185420" /></div>
+            <div class="field"><label>matt_tool (ID da ferramenta)</label><input id="affiliateMattTool" placeholder="Ex.: 79579775" /></div>
+            <div class="field"><label>matt_d2id (ID de afiliado)</label><input id="affiliateMattD2id" placeholder="Ex.: 8c0afc60-efcf-45d5..." /></div>
+            <div class="field"><label>matt_tracing_id (opcional)</label><input id="affiliateMattTracingId" placeholder="Ex.: 7d01a719-e684..." /></div>
+          </div>
+        </div>
+
+        <hr class="divider">
+
+        <!-- Amazon affiliate -->
+        <div class="amazon-section">
+          <div class="section-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2 9m12-9l2 9m-9-4h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <h3>Link de Afiliado — Amazon</h3>
+            <span id="amazonBadge" style="display:none" class="badge green">Ativo</span>
+          </div>
+          <p style="font-size:.85rem;color:var(--muted);margin-bottom:1rem">Links da Amazon encaminhados serão substituídos com sua tag de afiliado (<code>?tag=</code>). Links curtos <strong>amzn.to</strong> e <strong>a.co</strong> são resolvidos automaticamente.</p>
+          <label class="check" style="margin-bottom:1rem"><input type="checkbox" id="amazonEnabled" /> Substituição automática ativa</label>
+          <div class="form-grid">
+            <div class="field"><label>Tag de afiliado</label><input id="amazonTag" placeholder="Ex.: seutag-20" /></div>
+          </div>
+        </div>
+
+        <hr class="divider">
+
+        <!-- Shopee affiliate -->
+        <div class="shopee-section">
+          <div class="section-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <h3>Link de Afiliado — Shopee</h3>
+            <span id="shopeeBadge" style="display:none" class="badge green">Ativo</span>
+          </div>
+          <p style="font-size:.85rem;color:var(--muted);margin-bottom:1rem">Links da Shopee encaminhados receberão parâmetros UTM de afiliado. Links curtos <strong>shope.ee</strong> são resolvidos automaticamente.</p>
+          <label class="check" style="margin-bottom:1rem"><input type="checkbox" id="shopeeEnabled" /> Substituição automática ativa</label>
+          <div class="form-grid">
+            <div class="field"><label>ID do afiliado</label><input id="shopeeAffiliateId" placeholder="Ex.: 12345678" /></div>
+            <div class="field"><label>Sub-source (opcional)</label><input id="shopeeSubSource" placeholder="Ex.: grupo_promo" /></div>
+          </div>
+        </div>
+
+        <hr class="divider">
+
+        <div class="schedule-section">
+          <div class="section-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/><path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <h3>Agenda de Envio</h3>
+            <span id="queueBadge" style="display:none" class="badge yellow">0 na fila</span>
+          </div>
+          <p style="font-size:.85rem;color:var(--muted);margin-bottom:1rem">Ao ativar, mensagens serão enfileiradas e enviadas respeitando a janela de horário e o intervalo mínimo configurados.</p>
+          <label class="check" style="margin-bottom:1rem"><input type="checkbox" id="scheduleEnabled" /> Ativar agenda de envio</label>
+
+          <div class="form-grid">
+            <div class="field"><label>Início (horário permitido)</label><input type="time" id="scheduleStartTime" value="08:00" /></div>
+            <div class="field"><label>Fim (horário permitido)</label><input type="time" id="scheduleEndTime" value="22:00" /></div>
+            <div class="field"><label>Verificar fila a cada (min)</label><input type="number" id="scheduleCheckIntervalMinutes" min="1" max="60" value="1" /></div>
+            <div class="field"><label>Intervalo mínimo entre envios (min)</label><input type="number" id="scheduleDispatchIntervalMinutes" min="0" max="1440" value="5" /></div>
+          </div>
+
+          <div style="margin-top:.75rem;display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
+            <span style="font-size:.85rem;color:var(--muted)">Fila atual: <strong id="queueCount">0</strong> mensagens pendentes</span>
+            <button class="btn sm" id="pollNowBtn">Verificar grupos agora</button>
+            <button class="btn sm primary" id="processNowBtn">Enviar próxima</button>
+            <button class="btn sm danger" id="clearQueueBtn">Limpar fila</button>
+          </div>
+
+        </div>
+
+        <div class="form-actions"><button class="btn primary" id="saveSettingsBtn">Salvar configurações</button></div>
+      </div>
+
+    </div>
+
+    <!-- Coluna direita -->
+    <div>
+
+      <!-- Regras salvas -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-header-row">
+            <div><h2>Regras ativas</h2><p>Clique em excluir para remover uma regra.</p></div>
+            <span id="rulesBadge" class="badge gray">0</span>
+          </div>
+        </div>
+        <div id="rulesContainer" class="rules-list">
+          <div class="logs-empty">Nenhuma regra cadastrada ainda.</div>
+        </div>
+      </div>
+
+      <!-- Fila de Envio -->
+      <div id="queueMonitorPanel" class="queue-monitor" style="display:none">
+        <div class="queue-monitor-inner">
+          <div class="qm-left">
+            <div class="qm-header">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              Fila de Envio
+              <span id="qmBadge" class="badge yellow" style="margin-left:.25rem">0</span>
+            </div>
+            <div class="qm-timer-block">
+              <div class="qm-timer-label">Próximo envio em</div>
+              <div id="qmCountdown" class="qm-countdown">--:--</div>
+              <div id="qmNextAbs" class="qm-next-abs">—</div>
+            </div>
+            <div id="qmStatusRow" class="qm-status-row">
+              <span id="qmStatusDot" class="status-dot dot-gray"></span>
+              <span id="qmStatusText">Aguardando...</span>
+            </div>
+            <div class="qm-controls">
+              <button class="btn sm" id="qmPollBtn">↺ Verificar grupos</button>
+              <button class="btn sm primary" id="qmProcessBtn">▶ Enviar próxima</button>
+              <button class="btn sm danger" id="qmClearBtn">✕ Limpar fila</button>
+            </div>
+          </div>
+          <div class="qm-right">
+            <div class="qm-right-header">
+              <h3>Mensagens na fila</h3>
+            </div>
+            <div id="qmItems" class="qm-items">
+              <div class="qm-empty">Fila vazia</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Logs -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-header-row">
+            <div><h2>Logs</h2><p>Conexões, matches, simulações, reenvios e erros.</p></div>
+            <button class="btn sm" id="clearLogsBtn">Limpar</button>
+          </div>
+        </div>
+        <div class="logs" id="logs">
+          <div class="logs-empty">Aguardando eventos...</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  let socket = null;
+  let groups = [];
+  let rules = [];
+  let logsData = [];
+  let lastPromos = {};
+
+  const $ = id => document.getElementById(id);
+  const mapName = id => groups.find(g => g.id === id)?.name || id || '—';
+  const mapType = id => groups.find(g => g.id === id)?.type || 'group';
+
+  // Theme
+  const savedTheme = localStorage.getItem('theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', savedTheme);
+
+  // API helper — inclui token de autenticação em todas as chamadas
+  async function api(url, opts = {}) {
+    const token = localStorage.getItem('authToken') || '';
+    const res = await fetch(url, {
+      headers: { 'Content-Type': 'application/json', 'x-auth-token': token },
+      ...opts
+    });
+    if (res.status === 401) { doLogout(); return; }
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `Erro ${res.status}`);
+    return res.json();
+  }
+
+  // ── Login ────────────────────────────────────────────────────────────
+  function doLogout() {
+    const token = localStorage.getItem('authToken');
+    if (token) fetch('/api/auth/logout', { method: 'POST', headers: { 'x-auth-token': token } });
+    localStorage.removeItem('authToken');
+    if (socket) { socket.disconnect(); socket = null; }
+    document.getElementById('mainApp').style.display = 'none';
+    document.getElementById('loginOverlay').style.display = 'flex';
+    document.getElementById('loginUser').value = '';
+    document.getElementById('loginPass').value = '';
+    document.getElementById('loginError').style.display = 'none';
+  }
+
+  function initSocket(token) {
+    socket = io({ auth: { token } });
+    socket.on('connect_error', (err) => {
+      if (err.message === 'Não autenticado.') doLogout();
+    });
+    socket.on('status', renderStatus);
+    socket.on('groups', (list) => { groups = list; renderGroups(); renderRules(); });
+    socket.on('event', (item) => {
+      addLog(item);
+      if (item.type === 'forward' || item.type === 'simulate') {
+        api('/api/rules/last-by-platform').then(data => { lastPromos = data; renderRules(); }).catch(() => {});
+      }
+    });
+    socket.on('queue', (data) => {
+      updateQueueDisplay(data);
+      if ((data.count || 0) > 0) {
+        api('/api/queue').then(qd => updateQueueDisplay(qd)).catch(() => {});
+      }
+    });
+  }
+
+  async function startApp(token) {
+    localStorage.setItem('authToken', token);
+    document.getElementById('loginOverlay').style.display = 'none';
+    document.getElementById('mainApp').style.display = 'block';
+    initSocket(token);
+    await loadAll();
+  }
+
+  // Verificar sessão existente ao carregar
+  (async () => {
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      try {
+        const res = await fetch('/api/auth/check', { headers: { 'x-auth-token': token } });
+        const data = await res.json();
+        if (data.authenticated) { await startApp(token); return; }
+      } catch {}
+    }
+    // Sem sessão válida — mostrar login
+    document.getElementById('loginOverlay').style.display = 'flex';
+  })();
+
+  // Login form
+  document.getElementById('loginBtn').onclick = async () => {
+    const btn = document.getElementById('loginBtn');
+    const errEl = document.getElementById('loginError');
+    const user = document.getElementById('loginUser').value.trim();
+    const pass = document.getElementById('loginPass').value;
+    btn.disabled = true;
+    btn.textContent = 'Entrando...';
+    errEl.style.display = 'none';
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: user, password: pass })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro ao fazer login.');
+      await startApp(data.token);
+    } catch (e) {
+      errEl.textContent = e.message;
+      errEl.style.display = 'block';
+    }
+    btn.disabled = false;
+    btn.textContent = 'Entrar';
+  };
+
+  // Enter no campo de senha envia o form
+  document.getElementById('loginPass').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') document.getElementById('loginBtn').click();
+  });
+
+  // Button loading helper
+  function withLoading(btn, fn) {
+    return async () => {
+      const orig = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = `<span class="spinner"></span> Aguarde...`;
+      try { await fn(); } catch (e) { alert(e.message); }
+      btn.disabled = false;
+      btn.innerHTML = orig;
+    };
+  }
+
+  // Status rendering
+  const STATUS_MAP = {
+    conectado:     { dot: 'dot-green', label: 'Conectado',    badge: 'green' },
+    autenticado:   { dot: 'dot-yellow', label: 'Autenticando', badge: 'gray' },
+    aguardando_qr: { dot: 'dot-yellow', label: 'Scan QR',      badge: 'gray' },
+    iniciando:     { dot: 'dot-yellow', label: 'Iniciando',    badge: 'gray' },
+    desconectado:  { dot: 'dot-red',   label: 'Desconectado', badge: 'gray' },
+    falha_auth:    { dot: 'dot-red',   label: 'Falha auth',   badge: 'gray' },
+    resetado:      { dot: 'dot-gray',  label: 'Resetado',     badge: 'gray' },
+  };
+
+  function renderStatus(data) {
+    const s = STATUS_MAP[data.status] || { dot: 'dot-gray', label: data.status, badge: 'gray' };
+
+    $('statusText').innerHTML = `<span class="status-dot ${s.dot}"></span>${s.label}`;
+    $('statusBadge').textContent = s.label;
+    $('statusBadge').className = `badge ${s.badge}`;
+    $('rulesCount').textContent = data.rulesCount || 0;
+    $('simMode').textContent = data.settings?.simulationMode ? 'Ligado' : 'Desligado';
+
+    const afOn = data.settings?.affiliateEnabled &&
+      (data.settings?.affiliateApiToken || data.settings?.affiliateMattD2id);
+    const afMode = data.settings?.affiliateApiToken ? 'API meli.la' : 'matt_*';
+    const afParts = [];
+    if (afOn) afParts.push(`ML·${afMode}`);
+    if (data.settings?.amazonEnabled && data.settings?.amazonTag) afParts.push('AMZ');
+    if (data.settings?.shopeeEnabled && data.settings?.shopeeAffiliateId) afParts.push('SHP');
+    $('affiliateStat').innerHTML = afParts.length
+      ? `<span class="status-dot dot-green"></span>${afParts.join(' ')}`
+      : `<span style="color:var(--muted)">Inativo</span>`;
+    $('affiliateBadge').textContent = afOn ? `Ativo · ${afMode}` : 'Ativo';
+    $('affiliateBadge').style.display = afOn ? 'inline-flex' : 'none';
+    $('amazonBadge').style.display = (data.settings?.amazonEnabled && data.settings?.amazonTag) ? 'inline-flex' : 'none';
+    $('shopeeBadge').style.display = (data.settings?.shopeeEnabled && data.settings?.shopeeAffiliateId) ? 'inline-flex' : 'none';
+
+    // Se conectou mas ainda sem grupos, sugere o botão de atualizar
+    if (data.status === 'conectado' && groups.length === 0) {
+      const hint = $('groupsHint');
+      if (hint) hint.style.display = 'block';
+    } else {
+      const hint = $('groupsHint');
+      if (hint) hint.style.display = 'none';
+    }
+
+    renderQR(data);
+  }
+
+  function renderQR(data) {
+    const box = $('qrbox');
+    if (data.status === 'conectado') {
+      box.className = 'qrbox connected';
+      box.innerHTML = `
+        <div class="qr-icon success-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M20 6 9 17l-5-5" stroke="var(--success)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div class="qr-title" style="color:var(--success)">WhatsApp Conectado!</div>
+        <div class="qr-sub">${data.me ? data.me.split('@')[0] : 'Número ativo'}</div>`;
+    } else if (data.qr) {
+      box.className = 'qrbox';
+      box.innerHTML = `<img src="${data.qr}" alt="QR Code — escaneie com o WhatsApp" />
+        <div class="qr-sub" style="margin-top:.5rem">Abra o WhatsApp → Dispositivos vinculados → Vincular dispositivo</div>`;
+    } else if (['iniciando','autenticando'].includes(data.status)) {
+      box.className = 'qrbox';
+      box.innerHTML = `<div class="qr-spin"></div>
+        <div class="qr-title">Iniciando WhatsApp...</div>
+        <div class="qr-sub">Aguarde enquanto o Chrome carrega (pode levar 20–30s)</div>`;
+    } else if (data.status === 'aguardando_qr') {
+      box.className = 'qrbox';
+      box.innerHTML = `<div class="qr-spin"></div>
+        <div class="qr-title">Gerando QR Code...</div>
+        <div class="qr-sub">Quase lá, aguarde</div>`;
+    } else if (['desconectado','falha_auth'].includes(data.status)) {
+      box.className = 'qrbox';
+      box.innerHTML = `
+        <div class="qr-icon error-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" stroke="var(--error)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div class="qr-title" style="color:var(--error)">${data.status === 'falha_auth' ? 'Falha de autenticação' : 'Desconectado'}</div>
+        <div class="qr-sub">Clique em "Reiniciar" para tentar novamente</div>`;
+    } else {
+      box.className = 'qrbox';
+      box.innerHTML = `<div class="qr-spin"></div>
+        <div class="qr-title">Aguardando conexão...</div>
+        <div class="qr-sub">Status: ${data.status}</div>`;
+    }
+  }
+
+  // Rules rendering
+  function renderRules() {
+    $('rulesBadge').textContent = rules.length;
+    $('rulesBadge').className = `badge ${rules.length ? 'teal' : 'gray'}`;
+    const container = $('rulesContainer');
+    if (!rules.length) {
+      container.innerHTML = '<div class="logs-empty">Nenhuma regra cadastrada ainda.</div>';
+      return;
+    }
+    container.innerHTML = rules.map(r => {
+      const platforms = Array.isArray(r.platforms) && r.platforms.length ? r.platforms : ['ml'];
+      const platformBadges = platforms.map(p => {
+        if (p === 'ml')     return '<span class="badge teal" style="margin-left:.3rem;font-size:.72rem">ML</span>';
+        if (p === 'amazon') return '<span class="badge amazon" style="margin-left:.3rem;font-size:.72rem">AMZ</span>';
+        if (p === 'shopee') return '<span class="badge shopee" style="margin-left:.3rem;font-size:.72rem">SHP</span>';
+        return '';
+      }).join('');
+      return `
+      <div class="rule-card ${r.active ? '' : 'inactive'}">
+        <div class="rule-info">
+          <div class="rule-name">${escapeHtml(r.name)}${platformBadges}</div>
+          <div class="rule-detail">
+            <strong>Origem:</strong> ${mapType(r.sourceGroupId) === 'channel' ? '<span class="badge" style="font-size:.68rem;margin-right:.25rem;background:rgba(130,80,255,.18);color:#a370ff;border:1px solid rgba(130,80,255,.3)">Canal</span>' : ''}<span>${escapeHtml(mapName(r.sourceGroupId))}</span> →
+            <strong>Destino:</strong> ${escapeHtml(mapName(r.targetGroupId))}
+          </div>
+          <div class="rule-detail" style="margin-top:.25rem">
+            ${r.matchType}: <span class="rule-pattern">${escapeHtml(r.pattern)}</span>
+            ${r.active ? '' : '<span class="badge gray" style="margin-left:.4rem">inativa</span>'}
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:.4rem;flex-shrink:0">
+          <button class="btn sm" onclick="testSend('${r.id}')" title="Envia mensagem de teste no grupo de destino">✉ Testar envio</button>
+          ${platforms.map(p => {
+            const PLAT_LABEL = { ml: 'ML', amazon: 'AMZ', shopee: 'SHP' };
+            return `<button class="btn sm" onclick="replayLastPlatform('${r.id}','${p}')" title="Buscar e reenviar última promoção ${PLAT_LABEL[p]} do grupo de origem">⟳ Última ${PLAT_LABEL[p]}</button>`;
+          }).join('')}
+          <button class="btn sm danger" onclick="deleteRule('${r.id}')">✕ Excluir</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function escapeHtml(s) {
+    return String(s || '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+  }
+
+  function renderGroups() {
+    const groupItems = groups.filter(g => g.type !== 'channel');
+    const channelItems = groups.filter(g => g.type === 'channel');
+
+    const sourceOpts = `<option value="">— Selecione —</option>` +
+      (groupItems.length ? `<optgroup label="Grupos">${groupItems.map(g => `<option value="${escapeHtml(g.id)}">${escapeHtml(g.name)}</option>`).join('')}</optgroup>` : '') +
+      (channelItems.length ? `<optgroup label="Canais">${channelItems.map(g => `<option value="${escapeHtml(g.id)}">${escapeHtml(g.name)}</option>`).join('')}</optgroup>` : '');
+
+    const targetOpts = `<option value="">— Selecione —</option>` +
+      groupItems.map(g => `<option value="${escapeHtml(g.id)}">${escapeHtml(g.name)}</option>`).join('');
+
+    $('sourceGroup').innerHTML = sourceOpts;
+    $('targetGroup').innerHTML = targetOpts;
+  }
+
+  // Log rendering
+  const LOG_LABELS = { ruleName:'Regra', sourceName:'Origem', targetName:'Destino', reason:'Match', affiliateSwapped:'Link trocado', hasMedia:'Com mídia', targetGroupId:'Destino ID', msg:'Mensagem', error:'Erro', details:'Detalhe' };
+
+  function addLog(item) {
+    logsData.unshift(item);
+    const logsEl = $('logs');
+    const empty = logsEl.querySelector('.logs-empty');
+    if (empty) empty.remove();
+
+    const div = document.createElement('div');
+    div.className = `log-item ${item.type || 'info'}`;
+
+    const meta = item.meta || {};
+    const metaItems = Object.entries(meta)
+      .filter(([k]) => k !== 'preview')
+      .map(([k, v]) => {
+        const label = LOG_LABELS[k] || k;
+        const val = typeof v === 'boolean' ? (v ? 'Sim' : 'Não') : escapeHtml(String(v));
+        return `<span class="log-meta-item"><span class="log-meta-key">${label}:</span> ${val}</span>`;
+      }).join('');
+
+    const preview = meta.preview ? `<div class="log-preview">${escapeHtml(meta.preview)}</div>` : '';
+
+    div.innerHTML = `
+      <div class="log-time">${new Date(item.at).toLocaleString('pt-BR')}</div>
+      <div class="log-text">${escapeHtml(item.text || '')}</div>
+      ${metaItems ? `<div class="log-meta">${metaItems}</div>` : ''}
+      ${preview}`;
+
+    logsEl.prepend(div);
+    // Keep max 100 visible
+    const items = logsEl.querySelectorAll('.log-item');
+    if (items.length > 100) items[items.length - 1].remove();
+  }
+
+  // Data loading
+  async function loadAll() {
+    const [statusData, cfg, events, grp, lastPromosData] = await Promise.all([
+      api('/api/status'),
+      api('/api/config'),
+      api('/api/events'),
+      api('/api/groups').catch(() => []),
+      api('/api/rules/last-by-platform').catch(() => ({}))
+    ]);
+    groups = grp;
+    rules = cfg.rules || [];
+    lastPromos = lastPromosData;
+    renderStatus(statusData);
+    renderGroups();
+    renderRules();
+    $('simulationMode').checked = !!cfg.settings.simulationMode;
+    $('ignoreOwnMessages').checked = !!cfg.settings.ignoreOwnMessages;
+    $('avoidDuplicatesWindowSec').value = cfg.settings.avoidDuplicatesWindowSec || 120;
+    $('affiliateEnabled').checked = !!cfg.settings.affiliateEnabled;
+    $('affiliateApiToken').value = cfg.settings.affiliateApiToken || '';
+    $('affiliateApiTag').value = cfg.settings.affiliateApiTag || '';
+    $('affiliateMattD2id').value = cfg.settings.affiliateMattD2id || '';
+    $('affiliateMattTracingId').value = cfg.settings.affiliateMattTracingId || '';
+    $('affiliateMattTool').value = cfg.settings.affiliateMattTool || '';
+    $('affiliateSocialId').value = cfg.settings.affiliateSocialId || '';
+    $('amazonEnabled').checked = !!cfg.settings.amazonEnabled;
+    $('amazonTag').value = cfg.settings.amazonTag || '';
+    $('shopeeEnabled').checked = !!cfg.settings.shopeeEnabled;
+    $('shopeeAffiliateId').value = cfg.settings.shopeeAffiliateId || '';
+    $('shopeeSubSource').value = cfg.settings.shopeeSubSource || '';
+    $('scheduleEnabled').checked = !!cfg.settings.scheduleEnabled;
+    $('scheduleStartTime').value = cfg.settings.scheduleStartTime || '08:00';
+    $('scheduleEndTime').value = cfg.settings.scheduleEndTime || '22:00';
+    $('scheduleCheckIntervalMinutes').value = cfg.settings.scheduleCheckIntervalMinutes || 1;
+    $('scheduleDispatchIntervalMinutes').value = cfg.settings.scheduleDispatchIntervalMinutes || 5;
+    const qd = await api('/api/queue').catch(() => ({ count: 0, items: [] }));
+    updateQueueDisplay(qd);
+    $('logs').innerHTML = '';
+    logsData = [];
+    events.reverse().forEach(addLog);
+  }
+
+  async function saveRule() {
+    const name = $('name').value.trim();
+    const src = $('sourceGroup').value;
+    const tgt = $('targetGroup').value;
+    if (!name || !src || !tgt || !$('pattern').value.trim()) {
+      throw new Error('Preencha nome, grupos de origem/destino e padrão.');
+    }
+    const platforms = [...document.querySelectorAll('input[name="platform"]:checked')].map(i => i.value);
+    await api('/api/rules', { method: 'POST', body: JSON.stringify({
+      name, sourceGroupId: src, targetGroupId: tgt,
+      matchType: $('matchType').value, pattern: $('pattern').value,
+      flags: $('flags').value, prefix: $('prefix').value,
+      suffix: $('suffix').value, active: $('active').checked,
+      platforms: platforms.length ? platforms : ['ml']
+    })});
+    ['name','pattern','prefix','suffix'].forEach(id => $(id).value = '');
+    const cfg = await api('/api/config');
+    rules = cfg.rules || [];
+    renderRules();
+    const s = await api('/api/status');
+    renderStatus(s);
+  }
+
+  let queueState = { count: 0, lastDispatchTime: 0, dispatchIntervalMs: 0, inWindow: true, scheduleEnabled: false, items: [] };
+
+  function formatCountdown(ms) {
+    if (ms <= 0) return 'agora';
+    const totalSec = Math.ceil(ms / 1000);
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    return m > 0 ? `${m}m ${s.toString().padStart(2,'0')}s` : `${s}s`;
+  }
+
+  function renderQueueTimers() {
+    const { count, lastDispatchTime, dispatchIntervalMs, inWindow, scheduleEnabled, items } = queueState;
+    const monitorPanel = $('queueMonitorPanel');
+
+    if (!scheduleEnabled) {
+      monitorPanel.style.display = 'none';
+      return;
+    }
+    monitorPanel.style.display = 'block';
+
+    const now = Date.now();
+    const nextFromLast = lastDispatchTime > 0 ? lastDispatchTime + dispatchIntervalMs : now;
+    const nextDispatch = count > 0 ? Math.max(nextFromLast, now) : 0;
+    const waitMs = nextDispatch > 0 ? nextDispatch - now : 0;
+
+    // Badge
+    $('qmBadge').textContent = count;
+    $('qmBadge').style.display = count > 0 ? 'inline-flex' : 'none';
+
+    // Countdown
+    if (count === 0) {
+      $('qmCountdown').textContent = '--:--';
+      $('qmNextAbs').textContent = 'Fila vazia';
+      $('qmStatusDot').className = 'status-dot dot-gray';
+      $('qmStatusText').textContent = 'Nenhuma mensagem na fila';
+    } else if (!inWindow) {
+      $('qmCountdown').textContent = '--:--';
+      $('qmNextAbs').textContent = `Fora do horário (${queueState.scheduleStart || ''}–${queueState.scheduleEnd || ''})`;
+      $('qmStatusDot').className = 'status-dot dot-yellow';
+      $('qmStatusText').textContent = 'Aguardando janela de horário';
+    } else if (waitMs <= 0) {
+      $('qmCountdown').textContent = '00:00';
+      $('qmNextAbs').textContent = 'Enviando agora...';
+      $('qmStatusDot').className = 'status-dot dot-green';
+      $('qmStatusText').textContent = 'Pronto para enviar';
+    } else {
+      const totalSec = Math.ceil(waitMs / 1000);
+      const h = Math.floor(totalSec / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+      const s = totalSec % 60;
+      const display = h > 0
+        ? `${h}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`
+        : `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+      $('qmCountdown').textContent = display;
+      $('qmNextAbs').textContent = `às ${new Date(nextDispatch).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+      $('qmStatusDot').className = 'status-dot dot-yellow';
+      $('qmStatusText').textContent = `${count} mensagem${count > 1 ? 's' : ''} aguardando`;
+    }
+
+    // Lista de itens
+    const itemsEl = $('qmItems');
+    if (count === 0 || !items || items.length === 0) {
+      itemsEl.innerHTML = '<div class="qm-empty">Fila vazia</div>';
+      return;
+    }
+    itemsEl.innerHTML = items.map((item, i) => {
+      const estTime = nextDispatch + i * dispatchIntervalMs;
+      const estMs = estTime - now;
+      const relLabel = !inWindow ? '—' : (estMs <= 0 ? 'agora' : formatCountdown(estMs));
+      const absLabel = inWindow ? new Date(estTime).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '—';
+      return `<div class="qm-item">
+        <div class="qm-item-num">${i + 1}</div>
+        <div class="qm-item-body">
+          <div class="qm-item-rule">${item.rule} <span style="color:var(--muted);font-weight:400">← ${item.sourceName}</span></div>
+          <div class="qm-item-preview">${item.preview}</div>
+        </div>
+        <div class="qm-item-time">
+          <div class="qm-item-abs">${absLabel}</div>
+          <div class="qm-item-rel">${relLabel}</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function updateQueueDisplay(data) {
+    const count = typeof data === 'number' ? data : (data.count || 0);
+    if (typeof data === 'object' && data !== null) {
+      queueState = { ...queueState, ...data, count };
+    } else {
+      queueState.count = count;
+    }
+    $('queueCount').textContent = count;
+    const badge = $('queueBadge');
+    badge.textContent = `${count} na fila`;
+    badge.style.display = count > 0 ? 'inline-flex' : 'none';
+    renderQueueTimers();
+  }
+
+  // Atualiza countdown a cada segundo
+  setInterval(() => { if (queueState.count > 0) renderQueueTimers(); }, 1000);
+
+  async function saveSettings() {
+    await api('/api/settings', { method: 'POST', body: JSON.stringify({
+      simulationMode: $('simulationMode').checked,
+      ignoreOwnMessages: $('ignoreOwnMessages').checked,
+      avoidDuplicatesWindowSec: Number($('avoidDuplicatesWindowSec').value || 120),
+      affiliateEnabled: $('affiliateEnabled').checked,
+      affiliateApiToken: $('affiliateApiToken').value.trim(),
+      affiliateApiTag: $('affiliateApiTag').value.trim(),
+      affiliateMattD2id: $('affiliateMattD2id').value.trim(),
+      affiliateMattTracingId: $('affiliateMattTracingId').value.trim(),
+      affiliateMattTool: $('affiliateMattTool').value.trim(),
+      affiliateSocialId: $('affiliateSocialId').value.trim(),
+      amazonEnabled: $('amazonEnabled').checked,
+      amazonTag: $('amazonTag').value.trim(),
+      shopeeEnabled: $('shopeeEnabled').checked,
+      shopeeAffiliateId: $('shopeeAffiliateId').value.trim(),
+      shopeeSubSource: $('shopeeSubSource').value.trim(),
+      scheduleEnabled: $('scheduleEnabled').checked,
+      scheduleStartTime: $('scheduleStartTime').value,
+      scheduleEndTime: $('scheduleEndTime').value,
+      scheduleCheckIntervalMinutes: Number($('scheduleCheckIntervalMinutes').value || 1),
+      scheduleDispatchIntervalMinutes: Number($('scheduleDispatchIntervalMinutes').value || 5)
+    })});
+    const s = await api('/api/status');
+    renderStatus(s);
+  }
+
+  async function refreshGroups() {
+    groups = await api('/api/groups/refresh', { method: 'POST' });
+    renderGroups();
+    renderRules();
+    const hint = $('groupsHint');
+    if (hint) hint.style.display = groups.length === 0 ? 'block' : 'none';
+  }
+
+  async function deleteRule(id) {
+    if (!confirm('Excluir esta regra?')) return;
+    await api('/api/rules/' + id, { method: 'DELETE' });
+    const cfg = await api('/api/config');
+    rules = cfg.rules || [];
+    renderRules();
+    const s = await api('/api/status');
+    renderStatus(s);
+  }
+  window.deleteRule = deleteRule;
+
+  async function testSend(id) {
+    const btn = event.target;
+    const orig = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>';
+    try {
+      await api(`/api/rules/${id}/test-send`, { method: 'POST' });
+    } catch (e) { alert(e.message); }
+    btn.disabled = false;
+    btn.innerHTML = orig;
+  }
+  window.testSend = testSend;
+
+  async function replayLast(id) {
+    const btn = event.target;
+    const orig = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>';
+    try {
+      const res = await api(`/api/rules/${id}/replay-last`, { method: 'POST' });
+      if (res.simulated) alert(`Modo simulação ativo. Preview:\n\n${res.preview}`);
+    } catch (e) { alert(e.message); }
+    btn.disabled = false;
+    btn.innerHTML = orig;
+  }
+  window.replayLast = replayLast;
+
+  async function replayLastPlatform(id, platform) {
+    const btn = event.target;
+    const orig = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>';
+    try {
+      const res = await api(`/api/rules/${id}/replay-platform/${platform}`, { method: 'POST' });
+      if (res.simulated) alert(`Modo simulação ativo. Preview:\n\n${res.preview}`);
+    } catch (e) { alert(e.message); }
+    btn.disabled = false;
+    btn.innerHTML = orig;
+  }
+  window.replayLastPlatform = replayLastPlatform;
+
+  // Botões do painel de fila separado
+  const clearQueueHandler = async () => {
+    if (!confirm('Limpar toda a fila de mensagens pendentes?')) return;
+    await api('/api/queue', { method: 'DELETE' });
+    updateQueueDisplay({ count: 0, items: [], lastDispatchTime: queueState.lastDispatchTime, dispatchIntervalMs: queueState.dispatchIntervalMs, inWindow: queueState.inWindow, scheduleEnabled: queueState.scheduleEnabled });
+  };
+  const pollHandler = async () => {
+    await api('/api/queue/poll', { method: 'POST' });
+    const qd = await api('/api/queue').catch(() => ({ count: 0, items: [] }));
+    updateQueueDisplay(qd);
+    api('/api/rules/last-by-platform').then(data => { lastPromos = data; renderRules(); }).catch(() => {});
+  };
+  const processHandler = async () => {
+    await api('/api/queue/process', { method: 'POST' });
+    const qd = await api('/api/queue').catch(() => ({ count: 0, items: [] }));
+    updateQueueDisplay(qd);
+  };
+  $('qmPollBtn').onclick = withLoading($('qmPollBtn'), pollHandler);
+  $('qmProcessBtn').onclick = withLoading($('qmProcessBtn'), processHandler);
+  $('qmClearBtn').onclick = withLoading($('qmClearBtn'), clearQueueHandler);
+
+  // Theme toggle
+  $('themeBtn').onclick = () => {
+    const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+  };
+
+  // Logout do sistema
+  $('authLogoutBtn').onclick = () => {
+    if (confirm('Sair do sistema?')) doLogout();
+  };
+
+  // Button bindings
+  $('saveRuleBtn').onclick = withLoading($('saveRuleBtn'), saveRule);
+  $('saveSettingsBtn').onclick = withLoading($('saveSettingsBtn'), saveSettings);
+  $('refreshGroupsBtn').onclick = withLoading($('refreshGroupsBtn'), refreshGroups);
+  $('restartBtn').onclick = withLoading($('restartBtn'), async () => {
+    await api('/api/restart', { method: 'POST' });
+  });
+  $('logoutBtn').onclick = withLoading($('logoutBtn'), async () => {
+    if (!confirm('Resetar login? O QR Code será gerado novamente.')) return;
+    await api('/api/logout', { method: 'POST' });
+    await loadAll();
+  });
+  $('clearLogsBtn').onclick = () => {
+    $('logs').innerHTML = '<div class="logs-empty">Logs limpos.</div>';
+    logsData = [];
+  };
+  $('clearQueueBtn').onclick = withLoading($('clearQueueBtn'), clearQueueHandler);
+  $('pollNowBtn').onclick = withLoading($('pollNowBtn'), pollHandler);
+  $('processNowBtn').onclick = withLoading($('processNowBtn'), async () => {
+    await api('/api/queue/process', { method: 'POST' });
+    const qd = await api('/api/queue').catch(() => ({ count: 0, items: [] }));
+    updateQueueDisplay(qd);
+  });
+
+  // Socket listeners movidos para initSocket()
+
+  // Init
+  loadAll().catch(e => console.error('Erro ao carregar:', e));
+</script>
+</body>
+</html>

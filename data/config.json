@@ -1,0 +1,77 @@
+{
+  "rules": [
+    {
+      "id": "1779656850160",
+      "name": "teste",
+      "sourceGroupId": "120363427438728569@g.us",
+      "targetGroupId": "120363402920062700@g.us",
+      "matchType": "contains",
+      "pattern": "teste",
+      "flags": "i",
+      "prefix": "",
+      "suffix": "",
+      "active": true,
+      "platforms": [
+        "ml",
+        "amazon",
+        "shopee"
+      ]
+    },
+    {
+      "id": "1779656885049",
+      "name": "teste2",
+      "sourceGroupId": "120363422420838170@g.us",
+      "targetGroupId": "120363402920062700@g.us",
+      "matchType": "contains",
+      "pattern": "teste2",
+      "flags": "i",
+      "prefix": "",
+      "suffix": "",
+      "active": true,
+      "platforms": [
+        "ml",
+        "amazon",
+        "shopee"
+      ]
+    },
+    {
+      "id": "1779657911840",
+      "name": "teste3",
+      "sourceGroupId": "120363426326303257@g.us",
+      "targetGroupId": "120363402920062700@g.us",
+      "matchType": "contains",
+      "pattern": "teste3",
+      "flags": "i",
+      "prefix": "",
+      "suffix": "",
+      "active": true,
+      "platforms": [
+        "ml",
+        "amazon",
+        "shopee"
+      ]
+    }
+  ],
+  "settings": {
+    "ignoreOwnMessages": true,
+    "simulationMode": false,
+    "avoidDuplicatesWindowSec": 120,
+    "affiliateEnabled": true,
+    "affiliateMattD2id": "",
+    "affiliateMattTracingId": "",
+    "affiliateApiToken": "c3NpZD1naHktMDUyMTEyLUxtV0ZpQ010U05yMkZqSldtRk9ZOEhKbVdid0JZWC1fXy0zMzc3OTU4MjM3LV9fLTE4NzQwNzM4NDgxMDMtLVJSUl8wLVJSUl8w",
+    "affiliateApiTag": "promofantasma",
+    "affiliateMattTool": "79579775",
+    "affiliateSocialId": "cy20260504185420",
+    "scheduleEnabled": true,
+    "scheduleStartTime": "08:00",
+    "scheduleEndTime": "23:30",
+    "scheduleCheckIntervalMinutes": 1,
+    "scheduleDispatchIntervalMinutes": 5,
+    "amazonEnabled": true,
+    "amazonTag": "descontofantasma-20",
+    "shopeeEnabled": true,
+    "shopeeAffiliateId": "18303590431",
+    "shopeeSubSource": "O745V353CRC5BNAMX2DXQWKRJRR7S665"
+  }
+}

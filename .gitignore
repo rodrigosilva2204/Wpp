@@ -1,0 +1,23 @@
+# Dependências
+node_modules/
+
+# Sessão do WhatsApp (dados sensíveis)
+data/.wwebjs_auth/
+
+# Cache do whatsapp-web.js
+.wwebjs_cache/
+
+# Sessões de browser (Opensquad)
+_opensquad/_browser_profile/
+
+# Logs e temporários
+*.log
+npm-debug.log*
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
+# Variáveis de ambiente
+.env
+.env.local

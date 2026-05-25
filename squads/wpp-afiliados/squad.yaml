@@ -1,0 +1,89 @@
+name: wpp-afiliados
+description: Squad de desenvolvimento para o sistema de promoções WhatsApp com substituição de links de afiliado
+version: "1.0"
+language: pt-BR
+
+context:
+  project_root: "."
+  tech_stack: "Node.js, Express, whatsapp-web.js, Socket.io, Vanilla JS"
+  existing_files:
+    - server.js
+    - public/index.html
+    - data/config.json
+
+pipeline:
+  - id: planning
+    name: Planejamento
+    agent: architect
+    type: checkpoint
+    description: |
+      Revisar o código atual e confirmar as 3 implementações a serem feitas:
+      1. Substituição de link de afiliado (parâmetros matt_*)
+      2. Encaminhamento de imagem + texto (media forwarding)
+      3. UI de configuração do afiliado no painel web
+    questions:
+      - question: "Confirma as 3 implementações? Alguma prioridade ou mudança?"
+        options:
+          - "Implementar as 3 na ordem listada"
+          - "Só substituição de link e imagens (sem UI agora)"
+          - "Quero mudar algo"
+
+  - id: backend_affiliate
+    name: Substituição de Link de Afiliado
+    agent: backend_dev
+    type: task
+    description: |
+      Implementar no server.js:
+      1. Adicionar campo affiliateConfig nas settings (matt_d2id, matt_tracing_id, outras plataformas)
+      2. Função replaceAffiliateLink(text, affiliateConfig) que:
+         - Detecta URLs do Mercado Livre (mercadolivre.com.br / mercadopago)
+         - Remove parâmetros matt_* existentes
+         - Injeta os parâmetros do usuário
+         - Suporta links encurtados (mliv.com.br)
+      3. Aplicar a função no pipeline de encaminhamento antes de enviar
+      4. Adicionar endpoint PUT /api/settings para salvar affiliateConfig
+    output_file: "output/backend_affiliate.patch.md"
+
+  - id: backend_media
+    name: Encaminhamento de Imagens
+    agent: backend_dev
+    type: task
+    description: |
+      Implementar no server.js:
+      1. Verificar message.hasMedia na message_create
+      2. Se houver mídia, fazer message.downloadMedia()
+      3. Enviar mídia + caption (texto com link substituído) no grupo de destino
+      4. Tratar erros de download de mídia graciosamente
+    output_file: "output/backend_media.patch.md"
+    depends_on: backend_affiliate
+
+  - id: frontend_config
+    name: UI de Configuração do Afiliado
+    agent: frontend_dev
+    type: task
+    description: |
+      Adicionar no index.html na seção Configurações:
+      1. Campos para configurar link de afiliado:
+         - ID do afiliado ML (matt_d2id)
+         - ID de rastreamento (matt_tracing_id)
+         - Toggle "Substituir links automaticamente"
+      2. Salvar via POST /api/settings
+      3. Indicador visual quando substituição está ativa
+    output_file: "output/frontend_config.patch.md"
+    depends_on: backend_affiliate
+
+  - id: review
+    name: Revisão Final
+    agent: architect
+    type: checkpoint
+    description: |
+      Apresentar resumo das mudanças implementadas e confirmar com o usuário antes de finalizar.
+    questions:
+      - question: "As implementações estão corretas? Quer testar ou ajustar algo?"
+        options:
+          - "Tudo certo, finalizar"
+          - "Preciso ajustar algo"
+          - "Quero testar primeiro"
+    depends_on:
+      - backend_media
+      - frontend_config

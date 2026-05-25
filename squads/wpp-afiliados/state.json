@@ -1,0 +1,19 @@
+{
+  "squad": "wpp-afiliados",
+  "status": "completed",
+  "step": { "current": 5, "total": 5, "label": "review" },
+  "agents": [
+    { "id": "architect", "name": "Architect", "icon": "🏗️", "status": "done", "desk": { "col": 1, "row": 1 } },
+    { "id": "backend_dev", "name": "Backend Dev", "icon": "⚙️", "status": "done", "desk": { "col": 2, "row": 1 } },
+    { "id": "frontend_dev", "name": "Frontend Dev", "icon": "🎨", "status": "idle", "desk": { "col": 3, "row": 1 } }
+  ],
+  "handoff": {
+    "from": "backend_dev",
+    "to": "architect",
+    "message": "getProductUrlFromBrowser implementado — usa Chrome/Puppeteer já ativo para renderizar a página social e extrair URL do produto do DOM",
+    "completedAt": "2026-05-23T14:10:00.000Z"
+  },
+  "startedAt": "2026-05-23T14:00:00.000Z",
+  "updatedAt": "2026-05-23T14:10:00.000Z",
+  "completedAt": "2026-05-23T14:10:00.000Z"
+}
