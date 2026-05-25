@@ -516,8 +516,8 @@
       <div class="panel">
         <div class="panel-header">
           <div class="panel-header-row">
-            <div><h2>Nova regra</h2><p>Configure de qual grupo copiar e para qual enviar.</p></div>
-            <span class="badge teal">MVP</span>
+            <div><h2 id="ruleFormTitle">Nova regra</h2><p id="ruleFormSubtitle">Configure de qual grupo copiar e para qual enviar.</p></div>
+            <span class="badge teal" id="ruleFormBadge">NOVA</span>
           </div>
         </div>
         <div class="form-grid">
@@ -546,6 +546,7 @@
         </div>
         <div class="form-actions">
           <label class="check"><input type="checkbox" id="active" checked /> Regra ativa</label>
+          <button class="btn" id="cancelEditBtn" style="display:none">Cancelar</button>
           <button class="btn primary" id="saveRuleBtn">Salvar regra</button>
         </div>
       </div>
@@ -728,6 +729,7 @@
   let rules = [];
   let logsData = [];
   let lastPromos = {};
+  let editingRuleId = null;
 
   const $ = id => document.getElementById(id);
   const mapName = id => groups.find(g => g.id === id)?.name || id || '—';
@@ -966,6 +968,7 @@
           </div>
         </div>
         <div style="display:flex;flex-direction:column;gap:.4rem;flex-shrink:0">
+          <button class="btn sm" onclick="editRule('${r.id}')">✎ Editar</button>
           <button class="btn sm" onclick="testSend('${r.id}')" title="Envia mensagem de teste no grupo de destino">✉ Testar envio</button>
           ${platforms.map(p => {
             const PLAT_LABEL = { ml: 'ML', amazon: 'AMZ', shopee: 'SHP' };
@@ -1073,6 +1076,48 @@
     events.reverse().forEach(addLog);
   }
 
+  function clearRuleForm() {
+    editingRuleId = null;
+    ['name','pattern','prefix'].forEach(id => $(id).value = '');
+    $('suffix').value = '';
+    $('flags').value = 'i';
+    $('matchType').value = 'contains';
+    $('sourceGroup').value = '';
+    $('targetGroup').value = '';
+    $('active').checked = true;
+    document.querySelectorAll('input[name="platform"]').forEach(cb => { cb.checked = cb.value === 'ml'; });
+    $('ruleFormTitle').textContent = 'Nova regra';
+    $('ruleFormSubtitle').textContent = 'Configure de qual grupo copiar e para qual enviar.';
+    $('ruleFormBadge').textContent = 'NOVA';
+    $('ruleFormBadge').className = 'badge teal';
+    $('cancelEditBtn').style.display = 'none';
+    $('saveRuleBtn').textContent = 'Salvar regra';
+  }
+
+  window.editRule = function(id) {
+    const r = rules.find(x => x.id === id);
+    if (!r) return;
+    editingRuleId = id;
+    $('name').value = r.name || '';
+    $('matchType').value = r.matchType || 'contains';
+    $('sourceGroup').value = r.sourceGroupId || '';
+    $('targetGroup').value = r.targetGroupId || '';
+    $('pattern').value = r.pattern || '';
+    $('flags').value = r.flags || 'i';
+    $('prefix').value = r.prefix || '';
+    $('suffix').value = r.suffix || '';
+    $('active').checked = r.active !== false;
+    const rPlatforms = Array.isArray(r.platforms) ? r.platforms : ['ml'];
+    document.querySelectorAll('input[name="platform"]').forEach(cb => { cb.checked = rPlatforms.includes(cb.value); });
+    $('ruleFormTitle').textContent = 'Editar regra';
+    $('ruleFormSubtitle').textContent = `Editando: ${r.name}`;
+    $('ruleFormBadge').textContent = 'EDITAR';
+    $('ruleFormBadge').className = 'badge yellow';
+    $('cancelEditBtn').style.display = '';
+    $('saveRuleBtn').textContent = 'Atualizar regra';
+    document.querySelector('.panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   async function saveRule() {
     const name = $('name').value.trim();
     const src = $('sourceGroup').value;
@@ -1081,14 +1126,19 @@
       throw new Error('Preencha nome, grupos de origem/destino e padrão.');
     }
     const platforms = [...document.querySelectorAll('input[name="platform"]:checked')].map(i => i.value);
-    await api('/api/rules', { method: 'POST', body: JSON.stringify({
+    const payload = {
       name, sourceGroupId: src, targetGroupId: tgt,
       matchType: $('matchType').value, pattern: $('pattern').value,
       flags: $('flags').value, prefix: $('prefix').value,
       suffix: $('suffix').value, active: $('active').checked,
       platforms: platforms.length ? platforms : ['ml']
-    })});
-    ['name','pattern','prefix','suffix'].forEach(id => $(id).value = '');
+    };
+    if (editingRuleId) {
+      await api('/api/rules/' + editingRuleId, { method: 'PUT', body: JSON.stringify(payload) });
+    } else {
+      await api('/api/rules', { method: 'POST', body: JSON.stringify(payload) });
+    }
+    clearRuleForm();
     const cfg = await api('/api/config');
     rules = cfg.rules || [];
     renderRules();
@@ -1234,6 +1284,7 @@
 
   async function deleteRule(id) {
     if (!confirm('Excluir esta regra?')) return;
+    if (editingRuleId === id) clearRuleForm();
     await api('/api/rules/' + id, { method: 'DELETE' });
     const cfg = await api('/api/config');
     rules = cfg.rules || [];
@@ -1318,6 +1369,7 @@
   };
 
   // Button bindings
+  $('cancelEditBtn').onclick = clearRuleForm;
   $('saveRuleBtn').onclick = withLoading($('saveRuleBtn'), saveRule);
   $('saveSettingsBtn').onclick = withLoading($('saveSettingsBtn'), saveSettings);
   $('refreshGroupsBtn').onclick = withLoading($('refreshGroupsBtn'), refreshGroups);
