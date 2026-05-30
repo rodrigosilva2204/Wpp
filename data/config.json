@@ -4,52 +4,40 @@
       "id": "1779747379953",
       "name": "teate",
       "sourceGroupId": "120363422420838170@g.us",
-      "targetGroupId": "120363402920062700@g.us",
+      "targetGroupIds": ["120363402920062700@g.us"],
       "matchType": "regex",
       "pattern": "meli\\.la|mercadolivre\\.com\\.br|mercadolibre\\.com|amazon\\.com\\.br|amzn\\.to|a\\.co|shopee\\.com\\.br|shope\\.ee",
       "flags": "i",
       "prefix": "",
       "suffix": "\nCopie e convide seus amigos 👇🏼\nhttps://chat.whatsapp.com/D6R8iy0fPF15VdQudovJB4 🔥🚀",
       "active": true,
-      "platforms": [
-        "ml",
-        "amazon",
-        "shopee"
-      ]
+      "platforms": ["ml", "amazon", "shopee"]
     },
     {
       "id": "1779747459633",
       "name": "teste",
       "sourceGroupId": "120363427438728569@g.us",
-      "targetGroupId": "120363402920062700@g.us",
+      "targetGroupIds": ["120363402920062700@g.us"],
       "matchType": "regex",
       "pattern": "meli\\.la|mercadolivre\\.com\\.br|mercadolibre\\.com|amazon\\.com\\.br|amzn\\.to|a\\.co|shopee\\.com\\.br|shope\\.ee",
       "flags": "i",
       "prefix": "",
       "suffix": "\nCopie e convide seus amigos 👇🏼\nhttps://chat.whatsapp.com/D6R8iy0fPF15VdQudovJB4 🔥🚀",
       "active": true,
-      "platforms": [
-        "ml",
-        "amazon",
-        "shopee"
-      ]
+      "platforms": ["ml", "amazon", "shopee"]
     },
     {
       "id": "1779748203552",
       "name": "teste4",
       "sourceGroupId": "120363426326303257@g.us",
-      "targetGroupId": "120363402920062700@g.us",
-      "matchType": "contains",
+      "targetGroupIds": ["120363402920062700@g.us"],
+      "matchType": "regex",
       "pattern": "meli\\.la|mercadolivre\\.com\\.br|mercadolibre\\.com|amazon\\.com\\.br|amzn\\.to|a\\.co|shopee\\.com\\.br|shope\\.ee",
       "flags": "i",
       "prefix": "",
       "suffix": "\nCopie e convide seus amigos 👇🏼\nhttps://chat.whatsapp.com/D6R8iy0fPF15VdQudovJB4 🔥🚀",
       "active": true,
-      "platforms": [
-        "ml",
-        "amazon",
-        "shopee"
-      ]
+      "platforms": ["ml", "amazon", "shopee"]
     }
   ],
   "settings": {

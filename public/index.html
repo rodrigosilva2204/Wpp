@@ -424,6 +424,78 @@
       color:var(--error);font-size:.84rem;font-weight:600;text-align:center;
       border:1px solid rgba(255,45,120,.2);
     }
+
+    /* ── Tab nav ─────────────────────────────────────────────────────── */
+    .tab-nav{display:flex;gap:.35rem;margin-bottom:1.5rem;border-bottom:1px solid var(--border);padding-bottom:0}
+    .tab-btn{
+      padding:.55rem 1.1rem;border-radius:var(--radius-sm) var(--radius-sm) 0 0;
+      border:1px solid transparent;border-bottom:none;background:transparent;
+      color:var(--muted);font-size:.88rem;font-weight:600;cursor:pointer;
+      transition:all .18s;margin-bottom:-1px;
+    }
+    .tab-btn:hover{color:var(--text);background:var(--surface-2)}
+    .tab-btn.active{
+      background:var(--surface);color:var(--primary);
+      border-color:var(--border);border-bottom-color:var(--surface);
+    }
+    [data-theme="dark"] .tab-btn.active{color:var(--primary);text-shadow:0 0 12px rgba(0,210,255,.4)}
+
+    /* ── Dashboard ───────────────────────────────────────────────────── */
+    .dash-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1.5rem}
+    @media(max-width:700px){.dash-grid{grid-template-columns:repeat(2,1fr)}}
+    .dash-card{
+      background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+      padding:1.1rem 1.25rem;display:flex;flex-direction:column;gap:.3rem;
+    }
+    [data-theme="dark"] .dash-card{box-shadow:var(--shadow),inset 0 1px 0 rgba(0,210,255,.04)}
+    .dash-card .dc-label{font-size:.71rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+    .dash-card .dc-val{font-size:2rem;font-weight:700;line-height:1.1;color:var(--text);font-family:'Cabinet Grotesk',sans-serif}
+    [data-theme="dark"] .dash-card .dc-val{color:#d0e8ff}
+    .dash-card .dc-sub{font-size:.76rem;color:var(--muted);margin-top:.1rem}
+    .dash-card.accent{border-color:rgba(0,210,255,.25)}
+    [data-theme="dark"] .dash-card.accent{background:linear-gradient(135deg,rgba(0,210,255,.06) 0%,var(--surface) 60%)}
+
+    .dash-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.25rem}
+    @media(max-width:800px){.dash-row{grid-template-columns:1fr}}
+
+    .bar-chart{display:flex;align-items:flex-end;gap:.45rem;height:100px;padding-top:.5rem}
+    .bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:.3rem}
+    .bar{width:100%;border-radius:.25rem .25rem 0 0;background:var(--primary-soft);border:1px solid rgba(0,210,255,.2);min-height:3px;transition:height .4s ease}
+    [data-theme="dark"] .bar{background:rgba(0,210,255,.18);box-shadow:0 0 8px rgba(0,210,255,.15)}
+    .bar-label{font-size:.64rem;color:var(--muted);text-align:center;white-space:nowrap}
+    .bar-val{font-size:.68rem;font-weight:700;color:var(--primary);font-family:monospace}
+
+    .rules-table{width:100%;border-collapse:collapse;font-size:.83rem}
+    .rules-table th{text-align:left;font-size:.69rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;padding:.5rem .75rem;border-bottom:1px solid var(--border)}
+    .rules-table td{padding:.6rem .75rem;border-bottom:1px solid var(--border);vertical-align:middle}
+    .rules-table tr:last-child td{border-bottom:none}
+    .rules-table tr:hover td{background:var(--surface-2)}
+    .dash-empty{text-align:center;padding:3rem;color:var(--muted);font-size:.88rem}
+
+    /* ── Target chips ────────────────────────────────────────────────── */
+    .target-chips{display:flex;flex-wrap:wrap;gap:.35rem;min-height:1rem;margin-bottom:.4rem}
+    .target-chip{
+      display:inline-flex;align-items:center;gap:.3rem;
+      padding:.25rem .5rem .25rem .65rem;border-radius:.9rem;
+      background:var(--primary-soft);border:1px solid rgba(0,210,255,.2);
+      font-size:.78rem;font-weight:600;color:var(--primary);
+    }
+    .target-chip button{
+      background:none;border:none;cursor:pointer;padding:0;
+      line-height:1;color:var(--primary);opacity:.6;font-size:1rem;
+    }
+    .target-chip button:hover{opacity:1}
+
+    /* ── Responsive improvements ─────────────────────────────────────── */
+    @media(max-width:600px){
+      .topbar{gap:.6rem}
+      .topbar-right{gap:.3rem}
+      .topbar-right .btn{padding:.35rem .65rem;font-size:.78rem}
+      .rule-card{flex-wrap:wrap}
+      .rule-card > div:last-child{flex-direction:row;flex-wrap:wrap;width:100%}
+      .rule-card > div:last-child .btn{flex:1;min-width:80px;justify-content:center}
+      .brand-text p{display:none}
+    }
   </style>
 </head>
 <body>
@@ -473,6 +545,38 @@
     </div>
   </div>
 
+  <!-- Tab nav -->
+  <div class="tab-nav">
+    <button class="tab-btn active" data-tab="painel">⚙ Painel</button>
+    <button class="tab-btn" data-tab="dashboard" id="dashTabBtn">📊 Dashboard</button>
+  </div>
+
+  <!-- Dashboard (tela separada) -->
+  <div id="tabDashboard" style="display:none">
+    <div class="dash-grid">
+      <div class="dash-card accent"><div class="dc-label">Total enviadas</div><div class="dc-val" id="dTotal">—</div><div class="dc-sub">desde o início</div></div>
+      <div class="dash-card"><div class="dc-label">Hoje</div><div class="dc-val" id="dToday">—</div><div class="dc-sub" id="dTodayBreak">—</div></div>
+      <div class="dash-card"><div class="dc-label">Mercado Livre</div><div class="dc-val" id="dML">—</div><div class="dc-sub">hoje</div></div>
+      <div class="dash-card"><div class="dc-label">Amazon + Shopee</div><div class="dc-val" id="dOther">—</div><div class="dc-sub">hoje</div></div>
+    </div>
+
+    <div class="dash-row">
+      <div class="panel">
+        <div class="panel-header"><h2>Últimos 7 dias</h2></div>
+        <div class="bar-chart" id="barChart"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><div class="panel-header-row"><h2>Por regra</h2><button class="btn sm" id="refreshStatsBtn">↺ Atualizar</button></div></div>
+        <table class="rules-table" id="statsTable">
+          <thead><tr><th>Regra</th><th>Total</th><th>ML</th><th>AMZ</th><th>SHP</th><th>Última</th></tr></thead>
+          <tbody id="statsTableBody"><tr><td colspan="6" class="dash-empty">Carregando...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Painel principal -->
+  <div id="tabPainel">
   <div class="main-grid">
 
     <!-- Coluna esquerda -->
@@ -530,7 +634,14 @@
             </select>
           </div>
           <div class="field"><label>Origem <span style="font-size:.75rem;color:var(--muted);font-weight:400">(grupo ou canal)</span></label><select id="sourceGroup"><option value="">— Selecione —</option></select></div>
-          <div class="field"><label>Grupo de destino</label><select id="targetGroup"><option value="">— Selecione —</option></select></div>
+          <div class="field full">
+            <label>Grupos de destino</label>
+            <div class="target-chips" id="targetChips"></div>
+            <div style="display:flex;gap:.5rem;align-items:center">
+              <select id="targetGroup" style="flex:1"><option value="">— Selecione um grupo —</option></select>
+              <button type="button" class="btn sm" id="addTargetBtn">+ Adicionar</button>
+            </div>
+          </div>
           <div class="field full"><label>Padrão de identificação</label><input id="pattern" placeholder="Ex.: mercadolivre.com ou PEDIDO:" /></div>
           <div class="field"><label>Flags regex</label><input id="flags" value="i" /></div>
           <div class="field"><label>Prefixo (opcional)</label><input id="prefix" placeholder="🔥 OFERTA:" /></div>
@@ -721,6 +832,7 @@
 
     </div>
   </div>
+  </div><!-- /tabPainel -->
 </div>
 
 <script>
@@ -730,6 +842,7 @@
   let logsData = [];
   let lastPromos = {};
   let editingRuleId = null;
+  let targetGroupIds = [];  // múltiplos destinos para o formulário de regra
 
   const $ = id => document.getElementById(id);
   const mapName = id => groups.find(g => g.id === id)?.name || id || '—';
@@ -959,8 +1072,11 @@
         <div class="rule-info">
           <div class="rule-name">${escapeHtml(r.name)}${platformBadges}</div>
           <div class="rule-detail">
-            <strong>Origem:</strong> ${mapType(r.sourceGroupId) === 'channel' ? '<span class="badge" style="font-size:.68rem;margin-right:.25rem;background:rgba(130,80,255,.18);color:#a370ff;border:1px solid rgba(130,80,255,.3)">Canal</span>' : ''}<span>${escapeHtml(mapName(r.sourceGroupId))}</span> →
-            <strong>Destino:</strong> ${escapeHtml(mapName(r.targetGroupId))}
+            <strong>Origem:</strong> ${mapType(r.sourceGroupId) === 'channel' ? '<span class="badge" style="font-size:.68rem;margin-right:.25rem;background:rgba(130,80,255,.18);color:#a370ff;border:1px solid rgba(130,80,255,.3)">Canal</span>' : ''}<span>${escapeHtml(mapName(r.sourceGroupId))}</span>
+          </div>
+          <div class="rule-detail" style="margin-top:.2rem">
+            <strong>Destino${(r.targetGroupIds||[r.targetGroupId]).length > 1 ? 's' : ''}:</strong>
+            ${(r.targetGroupIds || (r.targetGroupId ? [r.targetGroupId] : [])).map(id => `<span style="margin-right:.35rem">${escapeHtml(mapName(id))}</span>`).join('→')}
           </div>
           <div class="rule-detail" style="margin-top:.25rem">
             ${r.matchType}: <span class="rule-pattern">${escapeHtml(r.pattern)}</span>
@@ -996,7 +1112,9 @@
       groupItems.map(g => `<option value="${escapeHtml(g.id)}">${escapeHtml(g.name)}</option>`).join('');
 
     $('sourceGroup').innerHTML = sourceOpts;
-    $('targetGroup').innerHTML = targetOpts;
+    $('targetGroup').innerHTML = `<option value="">— Selecione um grupo —</option>` +
+      groupItems.map(g => `<option value="${escapeHtml(g.id)}">${escapeHtml(g.name)}</option>`).join('');
+    renderTargetChips();
   }
 
   // Log rendering
@@ -1076,8 +1194,58 @@
     events.reverse().forEach(addLog);
   }
 
+  // ── Target chips ──────────────────────────────────────────────────
+  function renderTargetChips() {
+    const el = $('targetChips');
+    if (!el) return;
+    el.innerHTML = targetGroupIds.map(id =>
+      `<span class="target-chip">${escapeHtml(mapName(id))}<button type="button" onclick="removeTarget('${id}')">×</button></span>`
+    ).join('');
+  }
+  window.removeTarget = id => { targetGroupIds = targetGroupIds.filter(x => x !== id); renderTargetChips(); };
+
+  // ── Tab switching ────────────────────────────────────────────────
+  function switchTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    $('tabPainel').style.display = tab === 'painel' ? '' : 'none';
+    $('tabDashboard').style.display = tab === 'dashboard' ? '' : 'none';
+    if (tab === 'dashboard') loadDashboard();
+  }
+  document.querySelectorAll('.tab-btn').forEach(b => b.onclick = () => switchTab(b.dataset.tab));
+
+  // ── Dashboard ────────────────────────────────────────────────────
+  async function loadDashboard() {
+    const s = await api('/api/stats').catch(() => null);
+    if (!s) return;
+    $('dTotal').textContent = s.total;
+    $('dToday').textContent = s.today.total;
+    $('dTodayBreak').textContent = `ML: ${s.today.ml} · AMZ: ${s.today.amazon} · SHP: ${s.today.shopee}`;
+    $('dML').textContent = s.today.ml;
+    $('dOther').textContent = s.today.amazon + s.today.shopee;
+    // Bar chart
+    const max = Math.max(...s.last7.map(d => d.total), 1);
+    $('barChart').innerHTML = s.last7.map(d => {
+      const pct = Math.round((d.total / max) * 100);
+      const label = d.date.slice(5); // MM-DD
+      return `<div class="bar-wrap"><div class="bar-val">${d.total || ''}</div><div class="bar" style="height:${Math.max(pct,3)}%"></div><div class="bar-label">${label}</div></div>`;
+    }).join('');
+    // Table
+    if (!s.byRule.length) {
+      $('statsTableBody').innerHTML = '<tr><td colspan="6" class="dash-empty">Nenhum envio registrado ainda.</td></tr>';
+    } else {
+      $('statsTableBody').innerHTML = s.byRule.map(r => `
+        <tr>
+          <td><strong>${escapeHtml(r.name)}</strong></td>
+          <td><strong>${r.total}</strong></td>
+          <td>${r.ml}</td><td>${r.amazon}</td><td>${r.shopee}</td>
+          <td style="font-size:.75rem;color:var(--muted)">${r.lastAt ? new Date(r.lastAt).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—'}</td>
+        </tr>`).join('');
+    }
+  }
+
   function clearRuleForm() {
     editingRuleId = null;
+    targetGroupIds = [];
     ['name','pattern','prefix'].forEach(id => $(id).value = '');
     $('suffix').value = '';
     $('flags').value = 'i';
@@ -1092,16 +1260,20 @@
     $('ruleFormBadge').className = 'badge teal';
     $('cancelEditBtn').style.display = 'none';
     $('saveRuleBtn').textContent = 'Salvar regra';
+    renderTargetChips();
   }
 
   window.editRule = function(id) {
     const r = rules.find(x => x.id === id);
     if (!r) return;
     editingRuleId = id;
+    targetGroupIds = Array.isArray(r.targetGroupIds) && r.targetGroupIds.length > 0
+      ? [...r.targetGroupIds]
+      : r.targetGroupId ? [r.targetGroupId] : [];
     $('name').value = r.name || '';
     $('matchType').value = r.matchType || 'contains';
     $('sourceGroup').value = r.sourceGroupId || '';
-    $('targetGroup').value = r.targetGroupId || '';
+    $('targetGroup').value = '';
     $('pattern').value = r.pattern || '';
     $('flags').value = r.flags || 'i';
     $('prefix').value = r.prefix || '';
@@ -1109,6 +1281,7 @@
     $('active').checked = r.active !== false;
     const rPlatforms = Array.isArray(r.platforms) ? r.platforms : ['ml'];
     document.querySelectorAll('input[name="platform"]').forEach(cb => { cb.checked = rPlatforms.includes(cb.value); });
+    renderTargetChips();
     $('ruleFormTitle').textContent = 'Editar regra';
     $('ruleFormSubtitle').textContent = `Editando: ${r.name}`;
     $('ruleFormBadge').textContent = 'EDITAR';
@@ -1121,13 +1294,12 @@
   async function saveRule() {
     const name = $('name').value.trim();
     const src = $('sourceGroup').value;
-    const tgt = $('targetGroup').value;
-    if (!name || !src || !tgt || !$('pattern').value.trim()) {
-      throw new Error('Preencha nome, grupos de origem/destino e padrão.');
+    if (!name || !src || targetGroupIds.length === 0 || !$('pattern').value.trim()) {
+      throw new Error('Preencha nome, origem, ao menos um grupo de destino e padrão.');
     }
     const platforms = [...document.querySelectorAll('input[name="platform"]:checked')].map(i => i.value);
     const payload = {
-      name, sourceGroupId: src, targetGroupId: tgt,
+      name, sourceGroupId: src, targetGroupIds,
       matchType: $('matchType').value, pattern: $('pattern').value,
       flags: $('flags').value, prefix: $('prefix').value,
       suffix: $('suffix').value, active: $('active').checked,
@@ -1367,6 +1539,14 @@
   $('authLogoutBtn').onclick = () => {
     if (confirm('Sair do sistema?')) doLogout();
   };
+
+  // Add target button
+  $('addTargetBtn').onclick = () => {
+    const v = $('targetGroup').value;
+    if (v && !targetGroupIds.includes(v)) { targetGroupIds.push(v); renderTargetChips(); }
+    $('targetGroup').value = '';
+  };
+  $('refreshStatsBtn').onclick = withLoading($('refreshStatsBtn'), loadDashboard);
 
   // Button bindings
   $('cancelEditBtn').onclick = clearRuleForm;

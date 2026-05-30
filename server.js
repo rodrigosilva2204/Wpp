@@ -24,6 +24,7 @@ const { Client, LocalAuth } = require('whatsapp-web.js');
 const PORT = process.env.PORT || 3080;
 const DATA_DIR = path.join(__dirname, 'data');
 const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
+const STATS_FILE = path.join(DATA_DIR, 'stats.json');
 const SESSION_DIR = path.join(DATA_DIR, '.wwebjs_auth');
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -105,6 +106,14 @@ let processingQueue = false;  // Guard de concorrência para processQueue
 let wasInWindow = null;       // Rastreia estado da janela para evitar spam de log
 let lastByPlatform = {};      // { [ruleId]: { ml|amazon|shopee: { outgoing, at } } }
 
+// ─── Estatísticas de envio ────────────────────────────────────────────────────
+let stats = { daily: {}, byRule: {}, total: 0 };
+
+// ─── Reconexão automática ─────────────────────────────────────────────────────
+let reconnectAttempts = 0;
+let reconnectTimer = null;
+const MAX_RECONNECT = 5;
+
 // ─── Funções utilitárias ──────────────────────────────────────────────────────
 
 /**
@@ -134,6 +143,63 @@ function isWithinScheduleWindow(settings) {
   const [eh, em] = (settings.scheduleEndTime || '23:59').split(':').map(Number);
   const nowMin = now.getHours() * 60 + now.getMinutes();
   return nowMin >= sh * 60 + sm && nowMin < eh * 60 + em;
+}
+
+// Retorna array de IDs de destino de uma regra (suporta targetGroupIds array e targetGroupId legado).
+function getTargetIds(rule) {
+  if (Array.isArray(rule.targetGroupIds) && rule.targetGroupIds.length > 0) return rule.targetGroupIds;
+  if (rule.targetGroupId) return [rule.targetGroupId];
+  return [];
+}
+
+// Stats helpers
+function loadStats() {
+  try {
+    if (fs.existsSync(STATS_FILE)) return JSON.parse(fs.readFileSync(STATS_FILE, 'utf8'));
+  } catch {}
+  return { daily: {}, byRule: {}, total: 0 };
+}
+
+function saveStats() {
+  try { fs.writeFileSync(STATS_FILE, JSON.stringify(stats)); } catch {}
+}
+
+function recordForward(rule, platforms = []) {
+  const today = new Date().toISOString().slice(0, 10);
+  const hour = new Date().getHours();
+  if (!stats.daily[today]) stats.daily[today] = { total: 0, ml: 0, amazon: 0, shopee: 0, byHour: {} };
+  stats.daily[today].total++;
+  stats.daily[today].byHour[hour] = (stats.daily[today].byHour[hour] || 0) + 1;
+  platforms.forEach(p => { if (p in stats.daily[today]) stats.daily[today][p]++; });
+  if (!stats.byRule[rule.id]) stats.byRule[rule.id] = { name: rule.name, total: 0, ml: 0, amazon: 0, shopee: 0, lastAt: null };
+  stats.byRule[rule.id].name = rule.name;
+  stats.byRule[rule.id].total++;
+  stats.byRule[rule.id].lastAt = new Date().toISOString();
+  platforms.forEach(p => { if (p in stats.byRule[rule.id]) stats.byRule[rule.id][p]++; });
+  stats.total++;
+  saveStats();
+}
+
+// Reconexão automática com backoff exponencial
+function scheduleReconnect() {
+  if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+  if (reconnectAttempts >= MAX_RECONNECT) {
+    pushEvent('error', `[Reconexão] Limite de ${MAX_RECONNECT} tentativas atingido. Use o botão Reiniciar.`);
+    return;
+  }
+  const delay = Math.min(5000 * Math.pow(2, reconnectAttempts), 60000);
+  reconnectAttempts++;
+  pushEvent('warn', `[Reconexão] Tentativa ${reconnectAttempts}/${MAX_RECONNECT} em ${Math.round(delay / 1000)}s...`);
+  reconnectTimer = setTimeout(async () => {
+    try {
+      status = 'reconectando';
+      io.emit('status', getStatus());
+      await client.initialize();
+    } catch (err) {
+      pushEvent('error', `[Reconexão] Falha na tentativa ${reconnectAttempts}: ${err.message}`);
+      scheduleReconnect();
+    }
+  }, delay);
 }
 
 // Processa uma mensagem contra todas as regras ativas.
@@ -215,26 +281,34 @@ async function processMessageAgainstRules(message, chat) {
     }
 
     if (config.settings.scheduleEnabled) {
-      messageQueue.push({ outgoing, media, rule, sourceName, reason, affiliateSwapped, addedAt: Date.now() });
+      messageQueue.push({ outgoing, media, rule, sourceName, reason, affiliateSwapped, addedAt: Date.now(), platforms: detectedPlatforms });
       io.emit('queue', { count: messageQueue.length, lastDispatchTime });
       pushEvent('info', `[Agenda] Enfileirada. Fila: ${messageQueue.length}.`, {
         ruleName: rule.name, sourceName, preview: outgoing.slice(0, 400)
       });
-      processQueue(); // tenta disparar imediatamente após enfileirar
+      processQueue();
       continue;
     }
 
-    const targetChat = await client.getChatById(rule.targetGroupId);
-    if (media) {
-      await targetChat.sendMessage(media, { caption: outgoing });
-    } else {
-      await targetChat.sendMessage(outgoing);
+    const targetIds = getTargetIds(rule);
+    for (const targetId of targetIds) {
+      try {
+        const targetChat = await client.getChatById(targetId);
+        if (media) {
+          await targetChat.sendMessage(media, { caption: outgoing });
+        } else {
+          await targetChat.sendMessage(outgoing);
+        }
+        pushEvent('forward', 'Mensagem encaminhada.', {
+          ruleName: rule.name, sourceName,
+          targetName: targetChat.name || targetId,
+          reason, affiliateSwapped, hasMedia: !!media, preview: outgoing.slice(0, 400)
+        });
+      } catch (err) {
+        pushEvent('error', `Erro ao enviar para destino ${targetId}.`, { error: err.message });
+      }
     }
-    pushEvent('forward', 'Mensagem encaminhada.', {
-      ruleName: rule.name, sourceName,
-      targetName: targetChat.name || rule.targetGroupId,
-      reason, affiliateSwapped, hasMedia: !!media, preview: outgoing.slice(0, 400)
-    });
+    if (targetIds.length > 0) recordForward(rule, detectedPlatforms);
   }
 }
 
@@ -300,25 +374,37 @@ async function processQueue(force = false) {
   try {
     item = messageQueue.shift();
     if (!item) return;
-    const targetChat = await client.getChatById(item.rule.targetGroupId);
-    if (item.media) {
-      await targetChat.sendMessage(item.media, { caption: item.outgoing });
-    } else {
-      await targetChat.sendMessage(item.outgoing);
+    const targetIds = getTargetIds(item.rule);
+    let sent = false;
+    for (const targetId of targetIds) {
+      try {
+        const targetChat = await client.getChatById(targetId);
+        if (item.media) {
+          await targetChat.sendMessage(item.media, { caption: item.outgoing });
+        } else {
+          await targetChat.sendMessage(item.outgoing);
+        }
+        pushEvent('forward', 'Mensagem enviada via agenda.', {
+          ruleName: item.rule.name, sourceName: item.sourceName,
+          targetName: targetChat.name || targetId,
+          reason: item.reason, affiliateSwapped: item.affiliateSwapped,
+          hasMedia: !!item.media, queueRemaining: messageQueue.length,
+          preview: item.outgoing.slice(0, 400)
+        });
+        sent = true;
+      } catch (err) {
+        pushEvent('error', `[Agenda] Erro ao enviar para ${targetId}.`, { error: err.message });
+      }
     }
-    lastDispatchTime = Date.now();
+    if (sent) {
+      lastDispatchTime = Date.now();
+      recordForward(item.rule, item.platforms || []);
+    }
     io.emit('queue', { count: messageQueue.length, lastDispatchTime });
-    pushEvent('forward', 'Mensagem enviada via agenda.', {
-      ruleName: item.rule.name, sourceName: item.sourceName,
-      targetName: targetChat.name || item.rule.targetGroupId,
-      reason: item.reason, affiliateSwapped: item.affiliateSwapped,
-      hasMedia: !!item.media, queueRemaining: messageQueue.length,
-      preview: item.outgoing.slice(0, 400)
-    });
   } catch (err) {
-    if (item) messageQueue.unshift(item); // devolve ao início se falhou
+    if (item) messageQueue.unshift(item);
     io.emit('queue', { count: messageQueue.length, lastDispatchTime });
-    pushEvent('error', '[Agenda] Erro ao enviar da fila. Item devolvido.', { error: err.message });
+    pushEvent('error', '[Agenda] Erro crítico na fila. Item devolvido.', { error: err.message });
   } finally {
     processingQueue = false;
   }
@@ -1203,7 +1289,9 @@ client.on('qr', async (qr) => {
 client.on('ready', async () => {
   status = 'conectado';
   latestQr = null;
-  lastPollTimes = {}; // reinicia baseline — próximo poll vai só registrar, não processar mensagens antigas
+  lastPollTimes = {};
+  reconnectAttempts = 0;
+  if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
   try {
     me = client.info?.wid?._serialized || null;
   } catch {}
@@ -1275,6 +1363,7 @@ client.on('disconnected', (reason) => {
   io.emit('status', getStatus());
   io.emit('groups', []);
   pushEvent('error', 'WhatsApp desconectado.', { reason });
+  if (reason !== 'LOGOUT') scheduleReconnect();
 });
 
 // Listener em tempo real — complementa o polling periódico capturando mensagens ao vivo.
@@ -1464,14 +1553,17 @@ app.get('/api/rules/last-by-platform', (req, res) => {
  */
 app.post('/api/rules', (req, res) => {
   const rule = req.body || {};
-  if (!rule.name || !rule.sourceGroupId || !rule.targetGroupId || !rule.matchType || !rule.pattern) {
-    return res.status(400).json({ error: 'Campos obrigatórios ausentes: name, sourceGroupId, targetGroupId, matchType, pattern' });
+  const targetGroupIds = Array.isArray(rule.targetGroupIds) && rule.targetGroupIds.length > 0
+    ? rule.targetGroupIds.filter(id => id && typeof id === 'string')
+    : rule.targetGroupId ? [String(rule.targetGroupId)] : [];
+  if (!rule.name || !rule.sourceGroupId || targetGroupIds.length === 0 || !rule.matchType || !rule.pattern) {
+    return res.status(400).json({ error: 'Campos obrigatórios ausentes: name, sourceGroupId, targetGroupIds, matchType, pattern' });
   }
   const item = {
     id: Date.now().toString(),
     name: String(rule.name),
     sourceGroupId: String(rule.sourceGroupId),
-    targetGroupId: String(rule.targetGroupId),
+    targetGroupIds,
     matchType: String(rule.matchType),
     pattern: String(rule.pattern),
     flags: String(rule.flags || 'i'),
@@ -1485,6 +1577,24 @@ app.post('/api/rules', (req, res) => {
   config.rules.push(item);
   saveConfig();
   res.json({ ok: true, item });
+});
+
+/** Retorna estatísticas de envio dos últimos 30 dias. */
+app.get('/api/stats', (req, res) => {
+  const today = new Date().toISOString().slice(0, 10);
+  const last7 = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    last7.push({ date: key, ...(stats.daily[key] || { total: 0, ml: 0, amazon: 0, shopee: 0 }) });
+  }
+  res.json({
+    total: stats.total,
+    today: stats.daily[today] || { total: 0, ml: 0, amazon: 0, shopee: 0 },
+    last7,
+    byRule: Object.entries(stats.byRule).map(([id, s]) => ({ id, ...s }))
+      .sort((a, b) => b.total - a.total)
+  });
 });
 
 /**
@@ -1517,10 +1627,12 @@ app.post('/api/rules/:id/test-send', async (req, res) => {
   const rule = config.rules.find(r => r.id === req.params.id);
   if (!rule) return res.status(404).json({ error: 'Regra não encontrada' });
   try {
-    const targetChat = await client.getChatById(rule.targetGroupId);
     const now = new Date().toLocaleString('pt-BR');
-    await targetChat.sendMessage(`✅ *Teste WPP Promoções*\nRegra: _${rule.name}_\nEnviado em: ${now}`);
-    pushEvent('success', 'Mensagem de teste enviada.', { ruleName: rule.name, targetName: targetChat.name });
+    for (const targetId of getTargetIds(rule)) {
+      const targetChat = await client.getChatById(targetId);
+      await targetChat.sendMessage(`✅ *Teste WPP Promoções*\nRegra: _${rule.name}_\nEnviado em: ${now}`);
+      pushEvent('success', 'Mensagem de teste enviada.', { ruleName: rule.name, targetName: targetChat.name });
+    }
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1561,20 +1673,18 @@ app.post('/api/rules/:id/replay-last', async (req, res) => {
       try { media = await lastMsg.downloadMedia(); } catch {}
     }
 
-    const targetChat = await client.getChatById(rule.targetGroupId);
-    if (media) {
-      await targetChat.sendMessage(media, { caption: outgoing });
-    } else {
-      await targetChat.sendMessage(outgoing);
+    for (const targetId of getTargetIds(rule)) {
+      const targetChat = await client.getChatById(targetId);
+      if (media) {
+        await targetChat.sendMessage(media, { caption: outgoing });
+      } else {
+        await targetChat.sendMessage(outgoing);
+      }
+      pushEvent('forward', 'Última mensagem reenviada manualmente.', {
+        ruleName: rule.name, targetName: targetChat.name,
+        affiliateSwapped, hasMedia: !!media, preview: outgoing.slice(0, 400)
+      });
     }
-
-    pushEvent('forward', 'Última mensagem reenviada manualmente.', {
-      ruleName: rule.name,
-      targetName: targetChat.name,
-      affiliateSwapped,
-      hasMedia: !!media,
-      preview: outgoing.slice(0, 400)
-    });
     res.json({ ok: true, simulated: false });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1629,17 +1739,18 @@ app.post('/api/rules/:id/replay-platform/:platform', async (req, res) => {
       try { media = await lastMsg.downloadMedia(); } catch {}
     }
 
-    const targetChat = await client.getChatById(rule.targetGroupId);
-    if (media) {
-      await targetChat.sendMessage(media, { caption: outgoing });
-    } else {
-      await targetChat.sendMessage(outgoing);
+    for (const targetId of getTargetIds(rule)) {
+      const targetChat = await client.getChatById(targetId);
+      if (media) {
+        await targetChat.sendMessage(media, { caption: outgoing });
+      } else {
+        await targetChat.sendMessage(outgoing);
+      }
+      pushEvent('forward', `Última promoção [${platform.toUpperCase()}] reenviada manualmente.`, {
+        ruleName: rule.name, targetName: targetChat.name,
+        affiliateSwapped, hasMedia: !!media, preview: outgoing.slice(0, 400)
+      });
     }
-
-    pushEvent('forward', `Última promoção [${platform.toUpperCase()}] reenviada manualmente.`, {
-      ruleName: rule.name, targetName: targetChat.name,
-      affiliateSwapped, hasMedia: !!media, preview: outgoing.slice(0, 400)
-    });
     res.json({ ok: true, simulated: false });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1705,6 +1816,8 @@ io.on('connection', async (socket) => {
 });
 
 // ─── Inicialização ────────────────────────────────────────────────────────────
+
+stats = loadStats();
 
 server.listen(PORT, () => {
   console.log(`\n✅ Painel em http://localhost:${PORT}\n`);
