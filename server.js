@@ -105,6 +105,7 @@ let lastDispatchTime = 0;     // Timestamp do último disparo bem-sucedido
 let processingQueue = false;  // Guard de concorrência para processQueue
 let wasInWindow = null;       // Rastreia estado da janela para evitar spam de log
 let lastByPlatform = {};      // { [ruleId]: { ml|amazon|shopee: { outgoing, at } } }
+let runningSchedule = false;  // Controla se busca e envio estão ativos (Start/Pause)
 
 // ─── Estatísticas de envio ────────────────────────────────────────────────────
 let stats = { daily: {}, byRule: {}, total: 0 };
@@ -281,9 +282,9 @@ async function processMessageAgainstRules(message, chat) {
     }
 
     if (config.settings.scheduleEnabled) {
-      messageQueue.push({ outgoing, media, rule, sourceName, reason, affiliateSwapped, addedAt: Date.now(), platforms: detectedPlatforms });
+      messageQueue.unshift({ outgoing, media, rule, sourceName, reason, affiliateSwapped, addedAt: Date.now(), platforms: detectedPlatforms });
       io.emit('queue', { count: messageQueue.length, lastDispatchTime });
-      pushEvent('info', `[Agenda] Enfileirada. Fila: ${messageQueue.length}.`, {
+      pushEvent('info', `[Agenda] Enfileirada (prioridade). Fila: ${messageQueue.length}.`, {
         ruleName: rule.name, sourceName, preview: outgoing.slice(0, 400)
       });
       processQueue();
@@ -314,7 +315,7 @@ async function processMessageAgainstRules(message, chat) {
 
 // Dispara uma verificação em todos os grupos monitorados buscando mensagens novas.
 async function pollSourceGroups() {
-  if (status !== 'conectado') return;
+  if (!runningSchedule || status !== 'conectado') return;
   const activeRules = config.rules.filter(r => r.active);
   if (activeRules.length === 0) return;
 
@@ -354,7 +355,7 @@ async function pollSourceGroups() {
 // Envia o próximo item da fila.
 // force=true bypassa janela de horário e intervalo mínimo (usado no envio manual).
 async function processQueue(force = false) {
-  if (processingQueue || messageQueue.length === 0 || status !== 'conectado') return;
+  if ((!runningSchedule && !force) || processingQueue || messageQueue.length === 0 || status !== 'conectado') return;
 
   const inWindow = isWithinScheduleWindow(config.settings);
   if (inWindow !== wasInWindow) {
@@ -416,25 +417,25 @@ function startScheduleTimer() {
   wasInWindow = null;
 
   if (!config.settings.scheduleEnabled) {
+    runningSchedule = false;
+    io.emit('scheduleState', { running: false });
     pushEvent('info', '[Agenda] Desativada.');
     return;
   }
 
   const checkMs = Math.max(1, config.settings.scheduleCheckIntervalMinutes || 1) * 60 * 1000;
-
   pollTimer = setInterval(pollSourceGroups, checkMs);
-  // Timer de disparo bate a cada 30s; a decisão real de enviar é tomada dentro de processQueue
-  // com base no intervalo configurado (scheduleDispatchIntervalMinutes)
   scheduleTimer = setInterval(processQueue, 30 * 1000);
 
   pushEvent('info',
-    `[Agenda] Ativada — Polling: ${config.settings.scheduleCheckIntervalMinutes} min | ` +
+    `[Agenda] Configurada — Polling: ${config.settings.scheduleCheckIntervalMinutes} min | ` +
     `Intervalo envio: ${config.settings.scheduleDispatchIntervalMinutes} min | ` +
-    `Janela: ${config.settings.scheduleStartTime}–${config.settings.scheduleEndTime}`
+    `Janela: ${config.settings.scheduleStartTime}–${config.settings.scheduleEndTime}` +
+    (runningSchedule ? ' | RODANDO' : ' | PAUSADO')
   );
 
-  // Primeira varredura imediata
-  pollSourceGroups();
+  if (runningSchedule) pollSourceGroups();
+  io.emit('scheduleState', { running: runningSchedule });
 }
 
 /**
@@ -1198,11 +1199,32 @@ async function replaceAllAffiliateLinks(text, settings, platforms) {
 
 // ─── Cliente WhatsApp (whatsapp-web.js + Puppeteer) ───────────────────────────
 
+function findChromePath() {
+  const candidates = process.platform === 'win32'
+    ? [
+        'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+        'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+        (process.env.LOCALAPPDATA || '') + '\\Google\\Chrome\\Application\\chrome.exe'
+      ]
+    : [
+        '/usr/bin/google-chrome-stable',
+        '/usr/bin/google-chrome',
+        '/usr/bin/chromium-browser',
+        '/usr/bin/chromium',
+        '/snap/bin/chromium'
+      ];
+  return candidates.find(p => { try { return fs.existsSync(p); } catch { return false; } });
+}
+
+const chromePath = findChromePath();
+if (chromePath) console.log(`[Chrome] Usando: ${chromePath}`);
+else console.log('[Chrome] Nenhum executável encontrado — usando Chromium embutido do Puppeteer.');
+
 const client = new Client({
   authStrategy: new LocalAuth({ dataPath: SESSION_DIR }),
   puppeteer: {
     headless: true,
-    executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+    ...(chromePath ? { executablePath: chromePath } : {}),
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
@@ -1388,7 +1410,8 @@ function getStatus() {
     qr: latestQr,
     me,
     settings: config.settings,
-    rulesCount: config.rules.length
+    rulesCount: config.rules.length,
+    scheduleRunning: runningSchedule
   };
 }
 
@@ -1494,6 +1517,26 @@ app.post('/api/settings', (req, res) => {
   io.emit('status', getStatus());
   io.emit('queue', { count: messageQueue.length, lastDispatchTime });
   res.json({ ok: true, settings: config.settings });
+});
+
+app.post('/api/schedule/start', (req, res) => {
+  if (!config.settings.scheduleEnabled) return res.status(400).json({ error: 'Agenda desativada nas configurações.' });
+  runningSchedule = true;
+  io.emit('scheduleState', { running: true });
+  pushEvent('success', '[Agenda] Iniciada manualmente. Buscando promoções...');
+  pollSourceGroups();
+  res.json({ ok: true, running: true });
+});
+
+app.post('/api/schedule/pause', (req, res) => {
+  runningSchedule = false;
+  io.emit('scheduleState', { running: false });
+  pushEvent('warn', '[Agenda] Pausada manualmente.');
+  res.json({ ok: true, running: false });
+});
+
+app.get('/api/schedule/state', (req, res) => {
+  res.json({ running: runningSchedule, scheduleEnabled: config.settings.scheduleEnabled });
 });
 
 app.get('/api/queue', (req, res) => {
