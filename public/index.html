@@ -752,6 +752,13 @@
             <div class="field"><label>Intervalo mínimo entre envios (min)</label><input type="number" id="scheduleDispatchIntervalMinutes" min="0" max="1440" value="5" /></div>
           </div>
 
+          <div style="margin-top:1rem;display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
+            <button class="btn" id="scheduleStartBtn" style="gap:.4rem;font-size:.9rem;padding:.45rem 1rem">
+              <span id="scheduleStartIcon">▶</span> <span id="scheduleStartLabel">Iniciar envios</span>
+            </button>
+            <span id="scheduleRunningBadge" class="badge" style="display:none">⏸ Pausado</span>
+          </div>
+
           <div style="margin-top:.75rem;display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
             <span style="font-size:.85rem;color:var(--muted)">Fila atual: <strong id="queueCount">0</strong> mensagens pendentes</span>
             <button class="btn sm" id="pollNowBtn">Verificar grupos agora</button>
@@ -896,6 +903,35 @@
         api('/api/queue').then(qd => updateQueueDisplay(qd)).catch(() => {});
       }
     });
+    socket.on('scheduleState', (data) => updateScheduleBtn(data.running));
+  }
+
+  let scheduleRunning = false;
+
+  function updateScheduleBtn(running) {
+    scheduleRunning = running;
+    const btn = $('scheduleStartBtn');
+    const icon = $('scheduleStartIcon');
+    const label = $('scheduleStartLabel');
+    const badge = $('scheduleRunningBadge');
+    if (!btn || !icon || !label || !badge) return;
+    if (running) {
+      btn.className = 'btn danger';
+      btn.style = 'gap:.4rem;font-size:.9rem;padding:.45rem 1rem';
+      icon.textContent = '⏸';
+      label.textContent = 'Pausar envios';
+      badge.textContent = '▶ Rodando';
+      badge.className = 'badge green';
+      badge.style.display = 'inline-flex';
+    } else {
+      btn.className = 'btn';
+      btn.style = 'gap:.4rem;font-size:.9rem;padding:.45rem 1rem';
+      icon.textContent = '▶';
+      label.textContent = 'Iniciar envios';
+      badge.textContent = '⏸ Pausado';
+      badge.className = 'badge yellow';
+      badge.style.display = 'inline-flex';
+    }
   }
 
   async function startApp(token) {
@@ -1154,13 +1190,15 @@
 
   // Data loading
   async function loadAll() {
-    const [statusData, cfg, events, grp, lastPromosData] = await Promise.all([
+    const [statusData, cfg, events, grp, lastPromosData, schedState] = await Promise.all([
       api('/api/status'),
       api('/api/config'),
       api('/api/events'),
       api('/api/groups').catch(() => []),
-      api('/api/rules/last-by-platform').catch(() => ({}))
+      api('/api/rules/last-by-platform').catch(() => ({})),
+      api('/api/schedule/state').catch(() => ({ running: false }))
     ]);
+    updateScheduleBtn(statusData.scheduleRunning ?? schedState.running ?? false);
     groups = grp;
     rules = cfg.rules || [];
     lastPromos = lastPromosData;
@@ -1571,6 +1609,12 @@
     await api('/api/queue/process', { method: 'POST' });
     const qd = await api('/api/queue').catch(() => ({ count: 0, items: [] }));
     updateQueueDisplay(qd);
+  });
+  $('scheduleStartBtn').onclick = withLoading($('scheduleStartBtn'), async () => {
+    const endpoint = scheduleRunning ? '/api/schedule/pause' : '/api/schedule/start';
+    const data = await api(endpoint, { method: 'POST' });
+    // Deferir para depois que withLoading restaurar o innerHTML do botão
+    setTimeout(() => updateScheduleBtn(data.running), 0);
   });
 
   // Socket listeners movidos para initSocket()
