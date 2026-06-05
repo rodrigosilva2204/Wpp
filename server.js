@@ -1445,12 +1445,15 @@ async function loadGroups(merge = false) {
   let channelItems = [];
   try {
     const channels = await client.getChannels();
+    console.log(`[loadGroups] getChannels() retornou ${channels?.length ?? 0} canal(is):`, (channels || []).map(c => c.name || c.id._serialized));
     channelItems = (channels || []).map(c => ({
       id: c.id._serialized,
       name: c.name || c.id.user || c.id._serialized,
       type: 'channel'
     }));
-  } catch { /* versão sem suporte a getChannels */ }
+  } catch (err) {
+    console.error('[loadGroups] getChannels() falhou:', err.message);
+  }
 
   const fresh = [...groupItems, ...channelItems];
 
