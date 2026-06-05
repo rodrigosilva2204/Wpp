@@ -1434,13 +1434,25 @@ function getStatus() {
 async function loadGroups(merge = false) {
   if (status !== 'conectado') throw new Error('Cliente não está conectado.');
   const chats = await client.getChats();
-  const fresh = chats
-    .filter(c => c.isGroup || c.isChannel)
+  const groupItems = chats
+    .filter(c => c.isGroup)
     .map(c => ({
       id: c.id._serialized,
       name: c.name || c.id.user || c.id._serialized,
-      type: c.isChannel ? 'channel' : 'group'
+      type: 'group'
     }));
+
+  let channelItems = [];
+  try {
+    const channels = await client.getChannels();
+    channelItems = (channels || []).map(c => ({
+      id: c.id._serialized,
+      name: c.name || c.id.user || c.id._serialized,
+      type: 'channel'
+    }));
+  } catch { /* versão sem suporte a getChannels */ }
+
+  const fresh = [...groupItems, ...channelItems];
 
   const base = merge ? [...cachedGroups, ...fresh] : fresh;
   const byId = new Map(base.map(g => [g.id, g]));
