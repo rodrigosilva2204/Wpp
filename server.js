@@ -1503,6 +1503,17 @@ app.post('/api/groups/refresh', async (req, res) => {
   }
 });
 
+/** Debug: lista canais diretamente via getChannels() para diagnóstico. */
+app.get('/api/debug/channels', async (req, res) => {
+  try {
+    if (status !== 'conectado') return res.status(400).json({ error: 'WhatsApp não conectado.' });
+    const channels = await client.getChannels();
+    res.json({ count: channels.length, channels: channels.map(c => ({ id: c.id._serialized, name: c.name, isChannel: c.isChannel })) });
+  } catch (err) {
+    res.status(500).json({ error: err.message, stack: err.stack });
+  }
+});
+
 /**
  * Salva as configurações gerais do sistema.
  * Aceita: simulationMode, ignoreOwnMessages, avoidDuplicatesWindowSec,
