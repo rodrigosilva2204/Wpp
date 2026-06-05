@@ -1224,6 +1224,7 @@ const client = new Client({
   authStrategy: new LocalAuth({ dataPath: SESSION_DIR }),
   puppeteer: {
     headless: true,
+    timeout: 60000,
     ...(chromePath ? { executablePath: chromePath } : {}),
     args: [
       '--no-sandbox',
@@ -1234,7 +1235,16 @@ const client = new Client({
       '--no-default-browser-check',
       '--disable-default-apps',
       '--mute-audio',
-      '--window-size=1280,720'
+      '--window-size=1280,720',
+      '--disable-background-networking',
+      '--disable-background-timer-throttling',
+      '--disable-backgrounding-occluded-windows',
+      '--disable-renderer-backgrounding',
+      '--disable-extensions',
+      '--disable-sync',
+      '--disable-translate',
+      '--metrics-recording-only',
+      '--safebrowsing-disable-auto-update'
     ]
   }
 });
