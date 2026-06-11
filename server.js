@@ -9,6 +9,9 @@
  * Sessão do WhatsApp em: data/.wwebjs_auth/
  */
 
+// Força o fuso horário de Brasília para que os horários da agenda sejam interpretados corretamente
+process.env.TZ = 'America/Sao_Paulo';
+
 const express = require('express');
 const http = require('http');
 const https = require('https');
