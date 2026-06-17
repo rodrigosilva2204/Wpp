@@ -1227,7 +1227,10 @@ const client = new Client({
   authStrategy: new LocalAuth({ dataPath: SESSION_DIR }),
   puppeteer: {
     headless: true,
-    timeout: 60000,
+    timeout: 120000,
+    // VPS de 1 vCPU: a sincronização inicial do WhatsApp Web pode passar dos 180s
+    // padrão do CDP, derrubando o initialize com "Runtime.callFunctionOn timed out"
+    protocolTimeout: 600000,
     ...(chromePath ? { executablePath: chromePath } : {}),
     args: [
       '--no-sandbox',
@@ -1333,6 +1336,14 @@ client.on('ready', async () => {
   io.emit('status', getStatus());
   pushEvent('success', 'WhatsApp conectado com sucesso.');
 
+  // Restaura o estado Start/Pause da agenda (persistido no config) — sem isso,
+  // qualquer restart deixava a agenda pausada em silêncio até alguém clicar Start.
+  if (config.scheduleRunning && config.settings.scheduleEnabled && !runningSchedule) {
+    runningSchedule = true;
+    io.emit('scheduleState', { running: true });
+    pushEvent('success', '[Agenda] Retomada automaticamente após reconexão.');
+  }
+
   // 1ª carga: 2s após ready (rápida, pega grupos ativos)
   setTimeout(async () => {
     if (status !== 'conectado') return; // abortou antes de carregar
@@ -1403,12 +1414,13 @@ client.on('disconnected', (reason) => {
 
 // Listener em tempo real — complementa o polling periódico capturando mensagens ao vivo.
 client.on('message_create', async (message) => {
+  if (!message) return; // alguns tipos de notificação do WhatsApp chegam undefined
   try {
     const chat = await message.getChat();
     if (!chat?.isGroup && !chat?.isChannel) return;
     await processMessageAgainstRules(message, chat);
   } catch (err) {
-    pushEvent('error', 'Erro ao processar mensagem.', { error: err.message });
+    pushEvent('warn', 'Erro ao processar mensagem em tempo real.', { error: err.message });
   }
 });
 
@@ -1456,6 +1468,52 @@ async function loadGroups(merge = false) {
     }));
   } catch (err) {
     console.error('[loadGroups] getChannels() falhou:', err.message);
+  }
+
+  // Hidrata nomes de canais que vieram sem título: em sessão recém-vinculada o
+  // modelo fica na coleção sem o campo name; loadNewsletterPreviewChat busca os
+  // metadados completos (nome/descrição) direto do servidor do WhatsApp.
+  const nameless = channelItems.filter(c => !c.name || c.name === c.id.split('@')[0]);
+  if (nameless.length > 0 && client.pupPage) {
+    try {
+      const fixed = await client.pupPage.evaluate(async (ids) => {
+        const out = {};
+        const coll = window.require('WAWebCollections').WAWebNewsletterCollection;
+        for (const id of ids) {
+          try {
+            await window.require('WAWebLoadNewsletterPreviewChatAction').loadNewsletterPreviewChat(id);
+            const m = coll.get(id);
+            if (m && m.name) out[id] = m.name;
+          } catch (e) { /* canal pode ter sido excluído */ }
+        }
+        return out;
+      }, nameless.map(c => c.id));
+      for (const c of channelItems) if (fixed[c.id]) c.name = fixed[c.id];
+      if (Object.keys(fixed).length) console.log('[loadGroups] Nomes de canais hidratados:', Object.values(fixed));
+    } catch (err) {
+      console.error('[loadGroups] Hidratação de nomes de canais falhou:', err.message);
+    }
+  }
+
+  // Auto-recuperação: em sessão recém-vinculada a coleção de canais começa vazia.
+  // Recarrega canais referenciados nas regras que não vieram no getChannels()
+  // (getChatById popula a coleção via loadNewsletterPreviewChat).
+  const knownChannelIds = new Set(channelItems.map(c => c.id));
+  const ruleChannelIds = [...new Set(
+    config.rules
+      .flatMap(r => [r.sourceGroupId, ...(Array.isArray(r.targetGroupIds) ? r.targetGroupIds : [])])
+      .filter(id => typeof id === 'string' && id.endsWith('@newsletter') && !knownChannelIds.has(id))
+  )];
+  for (const id of ruleChannelIds) {
+    try {
+      const chat = await client.getChatById(id);
+      if (chat) {
+        channelItems.push({ id, name: chat.name || id.split('@')[0], type: 'channel' });
+        console.log(`[loadGroups] Canal recarregado via regra: ${chat.name || id}`);
+      }
+    } catch (err) {
+      console.error(`[loadGroups] Falha ao recarregar canal ${id}:`, err.message);
+    }
   }
 
   const fresh = [...groupItems, ...channelItems];
@@ -1509,12 +1567,102 @@ app.post('/api/groups/refresh', async (req, res) => {
   }
 });
 
+/**
+ * Debug: inspeciona um chat e o ACK (status de entrega) das últimas mensagens enviadas.
+ * ACK: -1=erro, 0=pendente (relógio), 1=servidor (1 tique), 2=entregue (2 tiques), 3=lida.
+ * Uso: GET /api/debug/acks?chatId=123@g.us&limit=15
+ */
+app.get('/api/debug/acks', async (req, res) => {
+  try {
+    if (status !== 'conectado') return res.status(400).json({ error: 'WhatsApp não conectado.' });
+    const chatId = String(req.query.chatId || '');
+    const limit = Math.min(50, Number(req.query.limit) || 15);
+    if (!chatId) return res.status(400).json({ error: 'Informe ?chatId=' });
+    const chat = await client.getChatById(chatId);
+    const msgs = await chat.fetchMessages({ limit });
+    res.json({
+      chat: {
+        id: chat.id?._serialized,
+        name: chat.name || null,
+        isGroup: !!chat.isGroup,
+        isReadOnly: !!chat.isReadOnly,
+        participants: Array.isArray(chat.participants) ? chat.participants.length
+          : Array.isArray(chat.groupMetadata?.participants) ? chat.groupMetadata.participants.length : null
+      },
+      messages: msgs.map(m => ({
+        id: m.id?._serialized,
+        at: new Date(m.timestamp * 1000).toISOString(),
+        fromMe: !!m.fromMe,
+        ack: m.ack,
+        body: (m.body || '').slice(0, 80)
+      }))
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message, stack: err.stack });
+  }
+});
+
+/** Debug: screenshot da página do WhatsApp Web (PNG) — funciona mesmo durante a inicialização. */
+app.get('/api/debug/screenshot', async (req, res) => {
+  try {
+    if (!client.pupPage) return res.status(400).json({ error: 'Página ainda não criada.', status });
+    const png = await client.pupPage.screenshot({ type: 'png' });
+    res.set('Content-Type', 'image/png').send(png);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * Força a sincronização dos canais (newsletters) em sessão recém-vinculada.
+ * Em sessões novas a WAWebNewsletterCollection começa vazia e getChannels() retorna [];
+ * carregar cada canal via WWebJS.getChat(id) popula a coleção (loadNewsletterPreviewChat).
+ * Body: { ids: ["123@newsletter", ...] } — IDs de canais conhecidos a recarregar.
+ */
+app.post('/api/debug/channels-sync', async (req, res) => {
+  try {
+    if (status !== 'conectado') return res.status(400).json({ error: 'WhatsApp não conectado.' });
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids.filter(i => /@newsletter$/.test(String(i))) : [];
+    const result = await client.pupPage.evaluate(async (ids) => {
+      const out = { before: 0, after: 0, synced: false, loaded: [], errors: [] };
+      const coll = window.require('WAWebCollections').WAWebNewsletterCollection;
+      out.before = coll.getModelsArray().length;
+      try {
+        if (typeof coll.sync === 'function') { await coll.sync(); out.synced = true; }
+      } catch (e) { out.errors.push('sync: ' + e.message); }
+      for (const id of ids) {
+        try {
+          // Sempre força o preview-load: além de popular a coleção quando o canal
+          // está ausente, também recarrega nome/descrição quando o modelo existe
+          // mas veio sem título (sessão recém-vinculada).
+          await window.require('WAWebLoadNewsletterPreviewChatAction').loadNewsletterPreviewChat(id);
+          const chat = coll.get(id) || await coll.find(window.require('WAWebWidFactory').createWid(id));
+          if (chat) out.loaded.push({ id, name: chat.name || null });
+          else out.errors.push(id + ': não encontrado');
+        } catch (e) { out.errors.push(id + ': ' + e.message); }
+      }
+      out.after = coll.getModelsArray().length;
+      return out;
+    }, ids);
+    cachedGroups = await loadGroups(true);
+    io.emit('groups', cachedGroups);
+    res.json({ ...result, totalPainel: cachedGroups.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message, stack: err.stack });
+  }
+});
+
 /** Debug: lista canais diretamente via getChannels() para diagnóstico. */
 app.get('/api/debug/channels', async (req, res) => {
   try {
     if (status !== 'conectado') return res.status(400).json({ error: 'WhatsApp não conectado.' });
     const channels = await client.getChannels();
-    res.json({ count: channels.length, channels: channels.map(c => ({ id: c.id._serialized, name: c.name, isChannel: c.isChannel })) });
+    res.json({ count: channels.length, channels: channels.map(c => ({
+      id: c.id._serialized,
+      name: c.name,
+      isChannel: c.isChannel,
+      channelMetadata: c.channelMetadata
+    })) });
   } catch (err) {
     res.status(500).json({ error: err.message, stack: err.stack });
   }
@@ -1561,6 +1709,8 @@ app.post('/api/settings', (req, res) => {
 app.post('/api/schedule/start', (req, res) => {
   if (!config.settings.scheduleEnabled) return res.status(400).json({ error: 'Agenda desativada nas configurações.' });
   runningSchedule = true;
+  config.scheduleRunning = true;
+  saveConfig();
   io.emit('scheduleState', { running: true });
   pushEvent('success', '[Agenda] Iniciada manualmente. Buscando promoções...');
   pollSourceGroups();
@@ -1569,6 +1719,8 @@ app.post('/api/schedule/start', (req, res) => {
 
 app.post('/api/schedule/pause', (req, res) => {
   runningSchedule = false;
+  config.scheduleRunning = false;
+  saveConfig();
   io.emit('scheduleState', { running: false });
   pushEvent('warn', '[Agenda] Pausada manualmente.');
   res.json({ ok: true, running: false });
@@ -1603,14 +1755,22 @@ app.delete('/api/queue', (req, res) => {
 app.post('/api/queue/process', async (req, res) => {
   if (status !== 'conectado') return res.status(400).json({ error: 'WhatsApp não conectado.' });
   if (messageQueue.length === 0) return res.json({ ok: true, msg: 'Fila vazia.' });
-  await processQueue(true);
-  res.json({ ok: true, queueRemaining: messageQueue.length });
+  try {
+    await processQueue(true);
+    res.json({ ok: true, queueRemaining: messageQueue.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.post('/api/queue/poll', async (req, res) => {
   if (status !== 'conectado') return res.status(400).json({ error: 'WhatsApp não conectado.' });
-  await pollSourceGroups();
-  res.json({ ok: true, queueCount: messageQueue.length });
+  try {
+    await pollSourceGroups();
+    res.json({ ok: true, queueCount: messageQueue.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 /** Retorna a última promoção capturada por plataforma para cada regra. */
@@ -1924,3 +2084,18 @@ client.initialize().catch((err) => {
   pushEvent('error', 'Falha ao inicializar o Chrome/WhatsApp.', { error: err.message });
   io.emit('status', getStatus());
 });
+
+// Shutdown gracioso: fecha o Chromium antes de sair, senão ele fica órfão
+// segurando o SingletonLock da sessão e o próximo start falha com
+// "The browser is already running" em loop.
+let shuttingDown = false;
+async function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`[shutdown] Recebido ${signal}, fechando navegador...`);
+  setTimeout(() => process.exit(0), 15000).unref(); // não trava o desligamento
+  try { await client.destroy(); } catch {}
+  process.exit(0);
+}
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
