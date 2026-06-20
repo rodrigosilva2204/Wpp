@@ -2083,14 +2083,34 @@ server.listen(PORT, () => {
   startScheduleTimer();
 });
 
-// Captura erros de inicialização do Puppeteer/Chrome e os exibe nos logs do painel
+// Captura erros de inicialização do Puppeteer/Chrome e os exibe nos logs do painel.
+// Erros de "Target closed" ou "Protocol error" indicam que o Chrome travou no VPS —
+// nesse caso encerra o processo para que o PM2 reinicie automaticamente.
+let restartingDueToCrash = false;
 process.on('unhandledRejection', (reason) => {
   const msg = reason instanceof Error ? reason.message : String(reason);
   console.error('[unhandledRejection]', msg);
   pushEvent('error', 'Erro interno não tratado.', { error: msg });
-  if (msg.toLowerCase().includes('chrome') || msg.toLowerCase().includes('puppeteer') || msg.toLowerCase().includes('browser')) {
-    status = 'falha_auth';
+
+  const low = msg.toLowerCase();
+  const isChromeError = low.includes('target closed') || low.includes('protocol error') ||
+    low.includes('session closed') || low.includes('chrome') ||
+    low.includes('puppeteer') || low.includes('browser') || low.includes('detached');
+
+  if (isChromeError && !restartingDueToCrash) {
+    restartingDueToCrash = true;
+    status = 'reiniciando';
     io.emit('status', getStatus());
+    pushEvent('warn', 'Chrome travou — reiniciando em 5s (PM2 irá reconectar)...', { error: msg });
+    setTimeout(async () => {
+      try { await client.destroy(); } catch {}
+      // Remove SingletonLock para evitar "browser already running" no próximo start
+      try {
+        const lockFile = path.join(SESSION_DIR, 'session', 'SingletonLock');
+        if (fs.existsSync(lockFile)) fs.unlinkSync(lockFile);
+      } catch {}
+      process.exit(1); // PM2 reinicia o processo automaticamente
+    }, 5000);
   }
 });
 
