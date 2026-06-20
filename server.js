@@ -1007,8 +1007,13 @@ async function generateMeliShortLink(originalUrl, settings) {
   }
 }
 
-// Aplica tag de afiliado Amazon em uma URL de produto.
-// Resolve links curtos (amzn.to) antes de injetar o parâmetro tag.
+// Extrai o ASIN de uma URL Amazon (ex: /dp/B07DFT2HNB ou /gp/product/B07DFT2HNB)
+function extractAmazonAsin(url) {
+  const m = url.match(/\/(?:dp|gp\/product|exec\/obidos\/ASIN)\/([A-Z0-9]{10})/i);
+  return m ? m[1] : null;
+}
+
+// Aplica tag de afiliado Amazon e encurta o link para o formato limpo amazon.com.br/dp/ASIN?tag=...
 async function applyAmazonAffiliate(url, settings) {
   if (!settings.amazonTag) return url;
   let productUrl = url;
@@ -1017,15 +1022,24 @@ async function applyAmazonAffiliate(url, settings) {
     if (resolved && resolved !== url) productUrl = resolved;
   }
   try {
+    const asin = extractAmazonAsin(productUrl);
+    if (asin) {
+      // URL limpa: só ASIN + tag de afiliado
+      return `https://www.amazon.com.br/dp/${asin}?tag=${settings.amazonTag}`;
+    }
+    // Fallback: mantém URL original mas injeta tag e remove parâmetros desnecessários
     const parsed = new URL(productUrl);
     parsed.searchParams.set('tag', settings.amazonTag);
-    ['linkCode', 'linkId', 'ref', 'ref_'].forEach(k => parsed.searchParams.delete(k));
+    ['linkCode', 'linkId', 'ref', 'ref_', 'crid', 'dib', 'dib_tag', 'keywords',
+     'qid', 'refinements', 'rnid', 'rps', 's', 'sprefix', 'sr', 'th', 'psc',
+     'pd_rd_w', 'pd_rd_wg', 'pd_rd_r', 'pf_rd_p', 'pf_rd_r',
+     'content-id', 'asc_campaign', 'asc_refurl', 'asc_source'].forEach(k => parsed.searchParams.delete(k));
     return parsed.toString();
   } catch { return url; }
 }
 
-// Aplica parâmetros de afiliado Shopee em uma URL de produto.
-// Resolve links curtos (shope.ee) antes de injetar os parâmetros.
+// Aplica parâmetros de afiliado Shopee e encurta removendo params desnecessários.
+// Mantém apenas o caminho do produto + UTM de afiliado.
 async function applyShopeeAffiliate(url, settings) {
   if (!settings.shopeeAffiliateId) return url;
   let productUrl = url;
@@ -1035,11 +1049,13 @@ async function applyShopeeAffiliate(url, settings) {
   }
   try {
     const parsed = new URL(productUrl);
-    parsed.searchParams.set('utm_source', 'affiliates');
-    parsed.searchParams.set('utm_medium', 'deep_link');
-    parsed.searchParams.set('utm_campaign', `AFF_${settings.shopeeAffiliateId}`);
-    if (settings.shopeeSubSource) parsed.searchParams.set('utm_content', settings.shopeeSubSource);
-    return parsed.toString();
+    // Remove todos os parâmetros existentes e adiciona só os de afiliado
+    const cleanUrl = new URL(`${parsed.origin}${parsed.pathname}`);
+    cleanUrl.searchParams.set('utm_source', 'affiliates');
+    cleanUrl.searchParams.set('utm_medium', 'deep_link');
+    cleanUrl.searchParams.set('utm_campaign', `AFF_${settings.shopeeAffiliateId}`);
+    if (settings.shopeeSubSource) cleanUrl.searchParams.set('utm_content', settings.shopeeSubSource);
+    return cleanUrl.toString();
   } catch { return url; }
 }
 
